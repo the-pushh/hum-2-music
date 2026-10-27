@@ -1,0 +1,51 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens, from the landing-page-design skill (Part B).
+ * The default palette is cleared so only these colors exist.
+ * Spacing: use only 0, 0.5, 1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24 (2px to 96px).
+ * Text: Tailwind's type scale only. No arbitrary values anywhere.
+ */
+@theme {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-canvas: #131209;
+  --color-surface: #1f1f1f;
+  --color-raised: #272727;
+  --color-line: #313131;
+  --color-ink: #f2f0ea;
+  --color-ink-muted: #9b9b9b;
+  --color-accent: #ff5a36;
+  --color-accent-ink: #131209;
+
+  --font-sans: var(--font-geist-sans);
+
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+  p {
+    text-wrap: pretty;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-property: opacity !important;
+    animation: none !important;
+  }
+}
