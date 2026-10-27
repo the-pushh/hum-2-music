@@ -4,15 +4,13 @@ import { useEffect, useRef } from "react";
 import { PitchDetector } from "pitchy";
 import { audioContext } from "@/audio/context";
 import { inKey } from "@/melody/cleanup";
-import type { Key } from "@/melody/types";
+import { pitchClass, voiceRangeHz, type Key } from "@/melody/types";
 import { tokenColor } from "@/ui/tokenColor";
 
 /** Seconds of singing visible at once. */
 const windowSec = 5;
 /** Below this, pitchy is guessing: breath, consonants, room noise. */
 const minClarity = 0.9;
-const lowestHz = 60;
-const highestHz = 1100;
 /** Frames further apart than this aren't joined. */
 const maxJoinSec = 0.1;
 /** Semitones shown above and below the middle of the view. */
@@ -54,7 +52,7 @@ export function PitchLine({ stream, songKey }: { stream: MediaStream | null; son
         const now = performance.now() / 1000;
         analyser.getFloatTimeDomainData(samples);
         const [hz, clarity] = detector.findPitch(samples, ctx.sampleRate);
-        const heard = clarity >= minClarity && hz >= lowestHz && hz <= highestHz;
+        const heard = clarity >= minClarity && hz >= voiceRangeHz.low && hz <= voiceRangeHz.high;
         const midi = heard ? 69 + 12 * Math.log2(hz / 440) : null;
         points.push({ t: now, midi });
         while (points.length && points[0].t < now - windowSec) points.shift();
@@ -75,7 +73,7 @@ export function PitchLine({ stream, songKey }: { stream: MediaStream | null; son
         const key = keyRef.current;
         for (let m = mid - halfRange; m <= mid + halfRange; m++) {
           if (key && !inKey(m, key)) continue;
-          const tonic = key && (((m - key.tonic) % 12) + 12) % 12 === 0;
+          const tonic = key && pitchClass(m - key.tonic) === 0;
           g.strokeStyle = key ? colors.scale : colors.guide;
           g.globalAlpha = tonic ? 0.6 : key ? 0.3 : 0.5;
           g.lineWidth = 1;

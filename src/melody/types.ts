@@ -19,6 +19,14 @@ export type CleanupSettings = {
 
 export const defaultCleanupSettings: CleanupSettings = { key: "auto", snap: true, grid: 8 };
 
+/** Roughly C2 to C6: a hummed or sung voice. Anything outside is an overtone or noise. */
+export const voiceRangeHz = { low: 60, high: 1100 };
+
+/** A MIDI pitch's pitch class, 0 = C … 11 = B, for any pitch including negative ones. */
+export function pitchClass(pitch: number): number {
+  return ((pitch % 12) + 12) % 12;
+}
+
 /** The tempo free takes are measured against when there was no click. */
 export const referenceBpm = 90;
 

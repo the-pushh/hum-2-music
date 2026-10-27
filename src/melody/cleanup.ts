@@ -1,4 +1,4 @@
-import type { CleanupSettings, Key, Note, Take } from "./types";
+import { pitchClass, type CleanupSettings, type Key, type Note, type Take } from "./types";
 
 /** Notes shorter than this are breaths, clicks and consonants, not sung notes. */
 const shortestNoteSec = 0.08;
@@ -92,7 +92,7 @@ function strength(n: Note) {
 /** Krumhansl-Schmuckler: correlate duration-weighted pitch classes with each key's profile. */
 export function detectKey(notes: Note[]): Key {
   const weights = new Array<number>(12).fill(0);
-  for (const n of notes) weights[((n.pitch % 12) + 12) % 12] += n.duration;
+  for (const n of notes) weights[pitchClass(n.pitch)] += n.duration;
 
   let best: Key = { tonic: 0, mode: "major" };
   let bestScore = -Infinity;
@@ -127,7 +127,7 @@ function correlation(xs: number[], profileAt: (pc: number) => number): number {
 
 export function inKey(pitch: number, key: Key): boolean {
   const steps = key.mode === "major" ? majorSteps : minorSteps;
-  return steps.includes((((pitch - key.tonic) % 12) + 12) % 12);
+  return steps.includes(pitchClass(pitch - key.tonic));
 }
 
 /**

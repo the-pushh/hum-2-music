@@ -31,7 +31,7 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
   if (t.status === "pending") {
     return (
       <div className="flex flex-col gap-2" aria-live="polite">
-        <div className="h-12 w-full animate-pulse rounded-lg bg-raised" aria-hidden />
+        <div className="h-12 w-full animate-pulse rounded-sm bg-raised" aria-hidden />
         <span className="text-xs text-ink-muted">Hearing the notes</span>
       </div>
     );

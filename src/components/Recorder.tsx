@@ -5,6 +5,7 @@ import WaveSurfer from "wavesurfer.js";
 import RecordPlugin from "wavesurfer.js/dist/plugins/record.esm.js";
 import { Microphone, Stop } from "@phosphor-icons/react";
 import { analyseRecording } from "@/audio/analyse";
+import { audioContext } from "@/audio/context";
 import { startClick } from "@/audio/click";
 import { formatDuration } from "@/audio/formatDuration";
 import { diagnoseMicFailure } from "@/audio/micErrorMessage";
@@ -97,6 +98,9 @@ export function Recorder({ onSave }: Props) {
     setElapsed(0);
     elapsedRef.current = 0;
     setStatus("starting");
+    // Create or resume the AudioContext inside the tap: iOS keeps one started later suspended, and the pitch line and
+    // click would hear and play nothing.
+    void audioContext();
     const ws = WaveSurfer.create({
       container: waveRef.current,
       ...waveformBars,
@@ -211,13 +215,13 @@ export function Recorder({ onSave }: Props) {
   }
 
   const live = status === "recording" || status === "starting" || status === "counting";
-  const label = status === "counting" ? (countBeat ? `Count-in, ${countBeat}` : "Count-in") : statusText[status];
+  const label = status === "counting" ? (countBeat ? `Counting in, ${countBeat}` : "Counting in") : statusText[status];
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
       <div className={`flex w-full items-center gap-3 rounded-2xl bg-surface p-3 ${live ? "" : "hidden"}`}>
         <span className="font-mono text-sm text-ink tabular-nums">{formatDuration(elapsed)}</span>
-        <div className="relative h-24 flex-1 overflow-hidden rounded-lg">
+        <div className="relative h-24 flex-1 overflow-hidden rounded-sm">
           <PitchLine stream={stream} songKey={options.key} />
           <div ref={waveRef} className="absolute inset-x-0 bottom-0 h-12 opacity-50" aria-hidden />
         </div>
@@ -231,7 +235,7 @@ export function Recorder({ onSave }: Props) {
         className="inline-flex size-24 items-center justify-center rounded-full bg-accent text-accent-ink transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink disabled:opacity-50"
       >
         {live ? <Stop size={32} weight="fill" aria-hidden /> : <Microphone size={32} weight="fill" aria-hidden />}
-        <span className="sr-only">{status === "counting" ? "Cancel count-in" : live ? "Stop and save recording" : "Record"}</span>
+        <span className="sr-only">{status === "counting" ? "Cancel counting in" : live ? "Stop and save recording" : "Record"}</span>
       </button>
       <p className="text-sm text-ink-muted" aria-live="polite">
         {label}

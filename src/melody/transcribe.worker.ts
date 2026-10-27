@@ -1,5 +1,6 @@
 /// <reference lib="webworker" />
 import * as tf from "@tensorflow/tfjs";
+import { voiceRangeHz } from "./types";
 import { addPitchBendsToNoteEvents, BasicPitch, noteFramesToTime, outputToNotesPoly } from "@spotify/basic-pitch";
 
 /** What the worker is sent: a take decoded to mono at basic-pitch's 22050 Hz. */
@@ -11,9 +12,6 @@ export type TranscribeResponse = { id: number; notes: HeardNote[] } | { id: numb
 // TF.js 3's browser timer checks `!window`, which throws in a worker. It only needs a truthy global.
 (self as unknown as { window: typeof self }).window ??= self;
 
-// A hummed or sung voice sits roughly between C2 and C6; anything outside is an overtone or noise.
-const lowestHz = 60;
-const highestHz = 1100;
 
 let basicPitch: Promise<BasicPitch> | undefined;
 
@@ -47,7 +45,7 @@ self.onmessage = async ({ data }: MessageEvent<TranscribeRequest>) => {
       },
       () => {},
     );
-    const events = outputToNotesPoly(frames, onsets, 0.5, 0.3, 5, true, highestHz, lowestHz);
+    const events = outputToNotesPoly(frames, onsets, 0.5, 0.3, 5, true, voiceRangeHz.high, voiceRangeHz.low);
     const notes = noteFramesToTime(addPitchBendsToNoteEvents(contours, events)).map((n) => ({
       pitch: n.pitchMidi,
       startSec: n.startTimeSeconds,
