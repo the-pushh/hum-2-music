@@ -53,8 +53,9 @@ export function LinkCard({ idea }: { idea: Idea & LinkInput }) {
             <ArrowSquareOut size={16} className="mt-1 shrink-0" aria-hidden />
             <span className="sr-only">(opens in a new tab)</span>
           </a>
-          {(idea.author || idea.description) && (
-            <span className="line-clamp-2 text-sm text-ink-muted">{idea.author ?? idea.description}</span>
+          {/* Media links: the channel or artist. Web pages: what the page says about itself. */}
+          {(media ? idea.author : (idea.description ?? idea.author)) && (
+            <span className="line-clamp-2 text-sm text-ink-muted">{media ? idea.author : (idea.description ?? idea.author)}</span>
           )}
         </div>
         {media && !playing && (

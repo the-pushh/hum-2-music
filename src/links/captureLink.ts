@@ -16,7 +16,13 @@ export async function captureLink(openSketchId: string | null, target: LinkTarge
   return result;
 }
 
-async function fetchPreview(target: LinkTarget) {
+type Unfurled = { title?: string; description?: string; image?: string; siteName?: string };
+
+async function fetchPreview(target: LinkTarget): Promise<Partial<LinkInput>> {
   if (target.provider !== "web") return fetchOEmbed(target);
-  return {};
+  // Other sites don't allow browser requests for their HTML, so hum's own route reads the page.
+  const res = await fetch(`/api/unfurl?url=${encodeURIComponent(target.url)}`, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`unfurl ${res.status}`);
+  const page = (await res.json()) as Unfurled;
+  return { title: page.title, description: page.description, thumb: page.image, author: page.siteName };
 }

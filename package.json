@@ -22,6 +22,7 @@
     "geist": "^1.8.2",
     "masonic": "^4.1.0",
     "next": "16.4.3",
+    "open-graph-scraper": "^6.12.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-player": "^3.4.0",
