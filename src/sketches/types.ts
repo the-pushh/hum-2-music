@@ -1,3 +1,5 @@
+import type { LinkProvider } from "@/links/parseLink";
+
 export type Sketch = {
   id: string;
   title: string;
@@ -25,8 +27,20 @@ export type LyricsInput = { kind: "lyrics"; doc: LyricsDoc };
 /** A picture for the moodboard, stored as-is or scaled down (see prepareImage). */
 export type ImageInput = { kind: "image"; blob: Blob; w: number; h: number };
 
-/** What a capture adds. Later tickets extend this union (link, color). */
-export type IdeaInput = NoteInput | VoiceInput | LyricsInput | ImageInput;
+/** A saved reference. Title, description and thumbnail come from oEmbed or the unfurl route when available. */
+export type LinkInput = {
+  kind: "link";
+  url: string;
+  provider: LinkProvider;
+  title?: string;
+  description?: string;
+  thumb?: string;
+  /** Who made it, as the provider reports it (channel, artist). */
+  author?: string;
+};
+
+/** What a capture adds. A later ticket extends this union (color). */
+export type IdeaInput = NoteInput | VoiceInput | LyricsInput | ImageInput | LinkInput;
 
 export type Idea = IdeaInput & {
   id: string;

@@ -24,6 +24,7 @@
     "next": "16.4.3",
     "react": "19.3.0",
     "react-dom": "19.3.0",
+    "react-player": "^3.4.0",
     "syllable": "^5.0.1",
     "wavesurfer.js": "^8.0.3"
   },

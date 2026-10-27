@@ -2,11 +2,14 @@
 
 import { useRouter } from "next/navigation";
 import { TextAa } from "@phosphor-icons/react";
+import { captureLink } from "@/links/captureLink";
+import type { LinkTarget } from "@/links/parseLink";
 import { emptyLyrics } from "@/lyrics/doc";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
 import { Button } from "./Button";
 import { ImagePicker } from "./ImagePicker";
+import { LinkComposer } from "./LinkComposer";
 import { NoteComposer } from "./NoteComposer";
 import { Recorder } from "./Recorder";
 
@@ -24,6 +27,11 @@ export function CaptureBar({ openSketchId }: Props) {
     if (stillMounted && !openSketchId) router.push(`/s/${sketch.id}`);
   }
 
+  async function saveLink(target: LinkTarget) {
+    const { sketch } = await captureLink(openSketchId, target);
+    if (!openSketchId) router.push(`/s/${sketch.id}`);
+  }
+
   async function writeLyrics() {
     const { sketch, idea } = await captureIdea(openSketchId, { kind: "lyrics", doc: emptyLyrics() });
     router.push(`/s/${sketch.id}/lyrics/${idea.id}`);
@@ -39,6 +47,7 @@ export function CaptureBar({ openSketchId }: Props) {
           Lyrics
         </Button>
         <ImagePicker onSave={(image) => save(image)} />
+        <LinkComposer onSave={saveLink} />
       </div>
     </section>
   );

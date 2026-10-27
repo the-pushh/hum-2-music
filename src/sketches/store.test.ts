@@ -130,4 +130,17 @@ describe("sketch store", () => {
     expect([idea.w, idea.h, idea.blob.type]).toEqual([1600, 1200, "image/jpeg"]);
     expect(new Uint8Array(await idea.blob.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
   });
+
+  it("keeps a link idea's address and preview details", async () => {
+    const store = freshStore();
+    const link = {
+      kind: "link" as const,
+      url: "https://youtu.be/dQw4w9WgXcQ",
+      provider: "youtube" as const,
+      title: "Never Gonna Give You Up",
+      thumb: "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+    };
+    const { sketch } = await store.capture(null, link);
+    expect(await store.listIdeas(sketch.id)).toMatchObject([link]);
+  });
 });
