@@ -78,4 +78,24 @@ describe("sketch store", () => {
     expect(await store.listIdeas("missing")).toEqual([]);
     expect(await store.listSketches()).toEqual([]);
   });
+
+  it("keeps a voice idea's audio, format, length and waveform", async () => {
+    const store = freshStore();
+    const audio = new Blob([new Uint8Array([1, 2, 3, 4])], { type: "audio/webm;codecs=opus" });
+    const { sketch } = await store.capture(null, {
+      kind: "voice",
+      blob: audio,
+      mime: "audio/webm;codecs=opus",
+      durationSec: 12.5,
+      peaks: [0.1, 0.8, 0.4],
+    });
+
+    const [idea] = await store.listIdeas(sketch.id);
+    expect(idea.kind).toBe("voice");
+    if (idea.kind !== "voice") return;
+    expect(idea.mime).toBe("audio/webm;codecs=opus");
+    expect(idea.durationSec).toBe(12.5);
+    expect(idea.peaks).toEqual([0.1, 0.8, 0.4]);
+    expect(new Uint8Array(await idea.blob.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]));
+  });
 });

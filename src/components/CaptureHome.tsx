@@ -4,19 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight } from "@phosphor-icons/react";
-import { captureIdea, sketchStore } from "@/sketches/client";
-import { NoteComposer } from "./NoteComposer";
+import { sketchStore } from "@/sketches/client";
+import { CaptureBar } from "./CaptureBar";
 
 const updatedAtFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function CaptureHome() {
   const router = useRouter();
   const sketches = useLiveQuery(() => sketchStore().listSketches(), []);
-
-  async function saveNote(text: string) {
-    const { sketch } = await captureIdea(null, { kind: "note", text });
-    router.push(`/s/${sketch.id}`);
-  }
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-8 px-4 py-8">
@@ -25,9 +20,7 @@ export function CaptureHome() {
         <h1 className="text-3xl font-semibold text-ink">Catch it before it goes</h1>
       </header>
 
-      <section aria-label="Capture" className="flex flex-col items-start gap-3">
-        <NoteComposer onSave={saveNote} />
-      </section>
+      <CaptureBar openSketchId={null} onCaptured={(sketch) => router.push(`/s/${sketch.id}`)} />
 
       <section aria-labelledby="recent" className="flex flex-col gap-3">
         <h2 id="recent" className="text-sm font-semibold text-ink-muted">
@@ -43,7 +36,7 @@ export function CaptureHome() {
           <div className="rounded-2xl border border-line p-6">
             <p className="text-base text-ink">No sketches yet.</p>
             <p className="text-sm text-ink-muted">
-              Save a note above and hum starts a sketch for it. Everything you add later collects there.
+              Record a hum or save a note above and hum starts a sketch for it. Everything you add later collects there.
             </p>
           </div>
         ) : (

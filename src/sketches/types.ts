@@ -7,8 +7,18 @@ export type Sketch = {
 
 export type NoteInput = { kind: "note"; text: string };
 
-/** What a capture adds. Later tickets extend this union (voice, lyrics, image, link, color). */
-export type IdeaInput = NoteInput;
+export type VoiceInput = {
+  kind: "voice";
+  blob: Blob;
+  /** The recorder's format: audio/mp4 on Safari, usually audio/webm elsewhere. */
+  mime: string;
+  durationSec: number;
+  /** Normalised 0..1 amplitudes, so the card can draw the waveform without decoding the audio. Empty if analysis failed. */
+  peaks: number[];
+};
+
+/** What a capture adds. Later tickets extend this union (lyrics, image, link, color). */
+export type IdeaInput = NoteInput | VoiceInput;
 
 export type Idea = IdeaInput & {
   id: string;
@@ -16,3 +26,5 @@ export type Idea = IdeaInput & {
   order: number;
   createdAt: number;
 };
+
+export type VoiceIdea = Extract<Idea, { kind: "voice" }>;

@@ -1,4 +1,5 @@
 import type { Idea } from "@/sketches/types";
+import { VoiceCard } from "./VoiceCard";
 
 export function IdeaCard({ data }: { data: Idea }) {
   switch (data.kind) {
@@ -8,5 +9,7 @@ export function IdeaCard({ data }: { data: Idea }) {
           <p className="whitespace-pre-wrap text-base text-ink">{data.text}</p>
         </article>
       );
+    case "voice":
+      return <VoiceCard idea={data} />;
   }
 }
