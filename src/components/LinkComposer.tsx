@@ -23,7 +23,7 @@ export function LinkComposer({ onSave }: { onSave: (target: LinkTarget) => Promi
   async function save() {
     const target = parseLink(text);
     if (!target) {
-      setError("That isn't a web address. Paste a link that starts with https://");
+      setError("That isn't a web address. Paste a link like https://example.com/song");
       return;
     }
     setSaving(true);

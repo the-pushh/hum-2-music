@@ -19,8 +19,12 @@ export class UnfurlError extends Error {
 }
 
 /** Refuses hosts that resolve to private or local addresses, so the route can't be used to probe the server's network. */
-async function assertPublicHost(url: URL) {
-  const addresses = await lookup(url.hostname, { all: true }).catch(() => []);
+async function assertPublicHost(url: URL, signal: AbortSignal) {
+  const aborted = new Promise<never>((_, reject) => signal.addEventListener("abort", () => reject(signal.reason), { once: true }));
+  const addresses = await Promise.race([lookup(url.hostname, { all: true }), aborted]).catch((e) => {
+    if (signal.aborted) throw e;
+    return [];
+  });
   if (!addresses.length || !addresses.every((a) => isPublicAddress(a.address))) {
     throw new UnfurlError("That address isn't on the public internet.", 422);
   }
@@ -31,7 +35,7 @@ async function fetchHtml(start: URL, signal: AbortSignal): Promise<{ html: strin
   let url = start;
   for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
     if (url.protocol !== "https:" && url.protocol !== "http:") throw new UnfurlError("Redirected to a non web address.", 422);
-    await assertPublicHost(url);
+    await assertPublicHost(url, signal);
     const res = await fetch(url, {
       redirect: "manual",
       signal,
@@ -39,6 +43,7 @@ async function fetchHtml(start: URL, signal: AbortSignal): Promise<{ html: strin
     });
     const location = res.headers.get("location");
     if (res.status >= 300 && res.status < 400 && location) {
+      await res.body?.cancel();
       url = new URL(location, url);
       continue;
     }

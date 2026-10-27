@@ -13,7 +13,7 @@ function SectionView({ node, updateAttributes }: ReactNodeViewProps) {
         value={part}
         onChange={(e) => updateAttributes({ part: e.target.value })}
         aria-label="Song part"
-        className="w-fit rounded-lg bg-raised px-2 py-1 text-xs font-semibold text-ink-muted uppercase transition duration-300 ease-soft hover:text-ink focus-visible:outline-2 focus-visible:outline-ink"
+        className="w-fit rounded-lg bg-raised px-2 py-1 text-xs font-semibold text-ink-muted uppercase transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-ink"
       >
         {SONG_PARTS.map((p) => (
           <option key={p} value={p}>

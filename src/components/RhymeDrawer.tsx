@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { X } from "@phosphor-icons/react";
 import { fetchRhymes, type Rhymes } from "@/lyrics/rhymes";
 
@@ -13,6 +13,12 @@ const chip =
 export function RhymeDrawer({ word, onPick, onClose }: Props) {
   const [state, setState] = useState<State>({ status: "loading" });
   const [attempt, setAttempt] = useState(0);
+  const panel = useRef<HTMLElement>(null);
+
+  // Keyboard users land on the first rhyme; picking one puts focus back in the editor at the saved cursor.
+  useEffect(() => {
+    if (state.status === "ready") panel.current?.querySelector<HTMLButtonElement>("li button")?.focus();
+  }, [state.status]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -38,6 +44,7 @@ export function RhymeDrawer({ word, onPick, onClose }: Props) {
 
   return (
     <aside
+      ref={panel}
       aria-label={`Rhymes for ${word}`}
       className="fixed inset-x-0 bottom-0 z-10 mx-auto flex max-h-96 w-full max-w-2xl flex-col gap-3 rounded-t-2xl border border-line bg-raised p-4"
     >
@@ -66,7 +73,7 @@ export function RhymeDrawer({ word, onPick, onClose }: Props) {
             <button
               type="button"
               onClick={retry}
-              className="rounded-sm font-semibold text-ink underline underline-offset-4 transition duration-300 ease-soft hover:text-ink-muted focus-visible:outline-2 focus-visible:outline-ink"
+              className="rounded-sm font-semibold text-ink underline underline-offset-4 transition duration-300 ease-soft hover:text-ink-muted active:scale-98 focus-visible:outline-2 focus-visible:outline-ink"
             >
               try again
             </button>

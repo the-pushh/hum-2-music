@@ -17,6 +17,6 @@ export function ideaSummary(idea: Idea): { icon: Icon; label: string } {
     case "link":
       return { icon: LinkSimple, label: idea.title ?? idea.url };
     case "color":
-      return { icon: Palette, label: `Colour ${idea.hex}` };
+      return { icon: Palette, label: `Color ${idea.hex}` };
   }
 }

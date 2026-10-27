@@ -108,9 +108,9 @@ export function Recorder({ onSave }: Props) {
     try {
       await record.startRecording();
       if (mountedRef.current) setStatus("recording");
-    } catch {
+    } catch (e) {
       teardown();
-      const message = await diagnoseMicFailure();
+      const message = await diagnoseMicFailure(e);
       if (!mountedRef.current) return;
       setStatus("idle");
       setError(message);
@@ -129,6 +129,7 @@ export function Recorder({ onSave }: Props) {
     if (!chunks.length) return void recordRef.current?.stopRecording();
     const mime = chunks[0].type || pickRecordingMime();
     savingRef.current = true;
+    if (mountedRef.current) setStatus("saving");
     void save(new Blob(chunks, { type: mime }), mime);
   }
 

@@ -72,8 +72,18 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
     },
   });
 
-  // Save whatever is still pending when leaving the editor.
-  useEffect(() => () => void flush(), []); // eslint-disable-line react-hooks/exhaustive-deps
+  // Save whatever is still pending when leaving the editor, closing the tab, or when a phone hides the page
+  // (it may never come back to run the debounce).
+  useEffect(() => {
+    const onHide = () => document.visibilityState === "hidden" && void flush();
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", onHide);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", onHide);
+      void flush();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   /** Puts the rhyme at the cursor, replacing a selection, with a space if it would touch the previous word. */
   function insertRhyme(rhyme: string) {
@@ -96,7 +106,7 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
   }
 
   return (
-    <main className={`mx-auto flex min-h-full w-full max-w-2xl flex-col gap-6 px-4 py-8 ${rhymeWord ? "pb-96" : ""}`}>
+    <main className="mx-auto flex min-h-full w-full max-w-2xl flex-col gap-6 px-4 py-8">
       <header className="flex items-center justify-between gap-4">
         <Link
           href={`/s/${sketchId}`}
@@ -138,7 +148,22 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
           {cursorWord ? `Rhymes for ${cursorWord}` : "Rhymes"}
         </Button>
       </div>
-      {rhymeWord && <RhymeDrawer key={rhymeWord} word={rhymeWord} onPick={insertRhyme} onClose={() => setRhymeWord(null)} />}
+      {rhymeWord && (
+        <>
+          {/* Room to scroll the last lines above the drawer. */}
+          <div className="h-96 shrink-0" aria-hidden />
+          <RhymeDrawer
+            key={rhymeWord}
+            word={rhymeWord}
+            onPick={insertRhyme}
+            onClose={() => {
+              setRhymeWord(null);
+              // After the drawer (which holds focus) is gone, back to the cursor where it was.
+              setTimeout(() => editor?.commands.focus(), 0);
+            }}
+          />
+        </>
+      )}
     </main>
   );
 }

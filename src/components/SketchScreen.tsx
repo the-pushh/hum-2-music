@@ -29,14 +29,36 @@ export function SketchScreen({ id }: { id: string }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState<{ kind: "idea"; idea: Idea } | { kind: "sketch" } | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [leaving, setLeaving] = useState(false);
+
+  /** Runs a change to the sketch, showing an inline message if this browser's storage refuses it. */
+  async function attempt(change: () => Promise<void>, failure: string) {
+    setActionError(null);
+    try {
+      await change();
+    } catch {
+      setActionError(failure);
+    }
+  }
 
   async function confirmDelete() {
     if (!confirming) return;
     setConfirming(null);
-    if (confirming.kind === "idea") return deleteIdea(confirming.idea.id);
-    await deleteSketch(id);
+    if (confirming.kind === "idea") {
+      const { idea } = confirming;
+      return attempt(() => deleteIdea(idea.id), "That idea couldn't be deleted. Try again.");
+    }
+    // Navigation doesn't wait, so mark the page as leaving: it mustn't flash "This sketch isn't here" meanwhile.
+    setLeaving(true);
     router.replace("/");
+    await deleteSketch(id).catch(() => {
+      setLeaving(false);
+      setActionError("The sketch couldn't be deleted. Try again.");
+    });
   }
+
+  if (leaving) return <main className="mx-auto w-full max-w-5xl px-4 py-8" aria-busy />;
 
   if (sketch === null) {
     return (
@@ -61,7 +83,10 @@ export function SketchScreen({ id }: { id: string }) {
           All sketches
         </Link>
         {sketch ? (
-          <EditableTitle title={sketch.title} onRename={(title) => sketchStore().renameSketch(id, title)} />
+          <EditableTitle
+            title={sketch.title}
+            onRename={(title) => attempt(() => sketchStore().renameSketch(id, title), "The new name couldn't be saved. Try again.")}
+          />
         ) : (
           <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
         )}
@@ -72,6 +97,11 @@ export function SketchScreen({ id }: { id: string }) {
       </div>
 
       <section aria-label="Ideas" className="flex flex-col gap-3">
+        {actionError && (
+          <p role="alert" className="text-sm text-accent">
+            {actionError}
+          </p>
+        )}
         {sketch && (
           <div className="flex justify-end gap-2">
             {editing && (
@@ -101,7 +131,9 @@ export function SketchScreen({ id }: { id: string }) {
           <div className="w-full max-w-xl">
             <ArrangeList
               ideas={ideas}
-              onMove={(ideaId, to) => void sketchStore().moveIdea(ideaId, to)}
+              onMove={(ideaId, to) =>
+                attempt(() => sketchStore().moveIdea(ideaId, to), "The new order couldn't be saved. Try moving it again.")
+              }
               onDelete={(idea) => setConfirming({ kind: "idea", idea })}
             />
           </div>

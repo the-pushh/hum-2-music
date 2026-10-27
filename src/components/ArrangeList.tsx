@@ -11,19 +11,30 @@ import {
   type Announcements,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { useState } from "react";
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { DotsSixVertical, Trash } from "@phosphor-icons/react";
 import type { Idea } from "@/sketches/types";
 import { ideaSummary } from "./ideaSummary";
 
-type Props = { ideas: Idea[]; onMove: (id: string, toIndex: number) => void; onDelete: (idea: Idea) => void };
+type Props = { ideas: Idea[]; onMove: (id: string, toIndex: number) => Promise<void>; onDelete: (idea: Idea) => void };
 
 /**
  * The sketch in edit mode: drag rows to reorder (mouse, touch, or keyboard: Space to lift, arrows to move,
  * Space to drop) and delete ideas.
  */
-export function ArrangeList({ ideas, onMove, onDelete }: Props) {
+export function ArrangeList({ ideas: stored, onMove, onDelete }: Props) {
+  // The order just dropped, shown until the saved order arrives, so a row doesn't snap back for a moment.
+  const [dropped, setDropped] = useState<{ from: Idea[]; to: Idea[] } | null>(null);
+  const ideas = dropped?.from === stored ? dropped.to : stored;
+
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     // A short press before dragging, so a touch can still scroll the page.
@@ -43,7 +54,10 @@ export function ArrangeList({ ideas, onMove, onDelete }: Props) {
 
   function onDragEnd({ active, over }: DragEndEvent) {
     if (!over || active.id === over.id) return;
-    onMove(String(active.id), ideas.findIndex((i) => i.id === over.id));
+    const from = ideas.findIndex((i) => i.id === active.id);
+    const to = ideas.findIndex((i) => i.id === over.id);
+    setDropped({ from: stored, to: arrayMove(ideas, from, to) });
+    void onMove(String(active.id), to).finally(() => setDropped(null));
   }
 
   return (
@@ -60,7 +74,10 @@ export function ArrangeList({ ideas, onMove, onDelete }: Props) {
 }
 
 function ArrangeRow({ idea, onDelete }: { idea: Idea; onDelete: () => void }) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: idea.id });
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: idea.id,
+    transition: { duration: 300, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }, // the ease-soft token
+  });
   const { icon: KindIcon, label } = ideaSummary(idea);
   return (
     <li
@@ -73,7 +90,7 @@ function ArrangeRow({ idea, onDelete }: { idea: Idea; onDelete: () => void }) {
         {...attributes}
         {...listeners}
         aria-label={`Move: ${label}`}
-        className="inline-flex size-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-ink-muted transition duration-300 ease-soft hover:bg-raised hover:text-ink active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-ink"
+        className="inline-flex size-10 shrink-0 cursor-grab touch-none items-center justify-center rounded-lg text-ink-muted transition duration-300 ease-soft hover:bg-raised hover:text-ink active:scale-98 active:cursor-grabbing focus-visible:outline-2 focus-visible:outline-ink"
       >
         <DotsSixVertical size={20} aria-hidden />
       </button>

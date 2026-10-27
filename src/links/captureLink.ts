@@ -2,6 +2,7 @@ import { captureIdea, sketchStore } from "@/sketches/client";
 import type { LinkInput } from "@/sketches/types";
 import { fetchOEmbed } from "./oembed";
 import type { LinkTarget } from "./parseLink";
+import type { Unfurled } from "./unfurl";
 
 /**
  * Saves the link straight away (so it's never lost, even offline), then fills in its preview.
@@ -15,8 +16,6 @@ export async function captureLink(openSketchId: string | null, target: LinkTarge
     .catch(() => {});
   return result;
 }
-
-type Unfurled = { title?: string; description?: string; image?: string; siteName?: string };
 
 async function fetchPreview(target: LinkTarget): Promise<Partial<LinkInput>> {
   if (target.provider !== "web") return fetchOEmbed(target);

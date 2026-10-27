@@ -15,22 +15,23 @@ export function micErrorMessage(error: unknown): string {
     case "AbortError":
       return "Another app is using the microphone. Close it, then tap Record again.";
     default:
-      return "hum can't reach your microphone. Check mic access for this site, then try again.";
+      return "hum can't reach your microphone. Check mic access for this site and that no other app is using it, then try again.";
   }
 }
 
 /**
  * Explains why the mic didn't start. wavesurfer's record plugin rethrows getUserMedia failures as a plain Error,
- * which loses the reason, so ask once more just to read the browser's error. The browser answers from its saved
- * decision, so there's no second prompt; if it works this time, release it straight away.
+ * which loses the reason, so read the cause from the permission state and the device list instead. (Asking for the
+ * mic again would show a second prompt on iOS, where a dismissed prompt isn't remembered.)
  */
-export async function diagnoseMicFailure(): Promise<string> {
+export async function diagnoseMicFailure(error: unknown): Promise<string> {
   if (!window.isSecureContext || !navigator.mediaDevices) return micErrorMessage(null);
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    stream.getTracks().forEach((t) => t.stop());
-    return micErrorMessage(null);
-  } catch (e) {
-    return micErrorMessage(e);
+  if (!(error instanceof Error) || !error.message.startsWith("Error accessing the microphone")) {
+    return "Recording couldn't start in this browser. Try again, or try another browser.";
   }
+  const permission = await navigator.permissions?.query({ name: "microphone" as PermissionName }).catch(() => null);
+  if (permission?.state === "denied") return micErrorMessage(new DOMException("", "NotAllowedError"));
+  const devices = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  if (!devices.some((d) => d.kind === "audioinput")) return micErrorMessage(new DOMException("", "NotFoundError"));
+  return micErrorMessage(null);
 }
