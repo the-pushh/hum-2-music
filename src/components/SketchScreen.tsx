@@ -3,15 +3,19 @@
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Masonry } from "masonic";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeft, ArrowsDownUp, Check } from "@phosphor-icons/react";
+import { useState } from "react";
 import { sketchStore } from "@/sketches/client";
 import { IdeaCard } from "./IdeaCard";
+import { ArrangeList } from "./ArrangeList";
+import { Button } from "./Button";
 import { CaptureBar } from "./CaptureBar";
 
 export function SketchScreen({ id }: { id: string }) {
   // null means "looked and it isn't there"; undefined means still loading.
   const sketch = useLiveQuery(async () => (await sketchStore().getSketch(id)) ?? null, [id]);
   const ideas = useLiveQuery(() => sketchStore().listIdeas(id), [id]);
+  const [arranging, setArranging] = useState(false);
 
   if (sketch === null) {
     return (
@@ -46,7 +50,13 @@ export function SketchScreen({ id }: { id: string }) {
         <CaptureBar openSketchId={id} />
       </div>
 
-      <section aria-label="Ideas">
+      <section aria-label="Ideas" className="flex flex-col gap-3">
+        {ideas && ideas.length > 1 && (
+          <Button variant="ghost" className="w-fit self-end" onClick={() => setArranging((a) => !a)} aria-pressed={arranging}>
+            {arranging ? <Check size={20} aria-hidden /> : <ArrowsDownUp size={20} aria-hidden />}
+            {arranging ? "Done arranging" : "Arrange"}
+          </Button>
+        )}
         {ideas === undefined ? (
           <div className="grid grid-cols-2 gap-3" aria-hidden>
             {[0, 1, 2, 3].map((i) => (
@@ -57,6 +67,10 @@ export function SketchScreen({ id }: { id: string }) {
           <div className="rounded-2xl border border-line p-6">
             <p className="text-base text-ink">Nothing in this sketch yet.</p>
             <p className="text-sm text-ink-muted">Record a hum or add a note to start collecting the pieces of this song.</p>
+          </div>
+        ) : arranging ? (
+          <div className="w-full max-w-xl">
+            <ArrangeList ideas={ideas} onMove={(ideaId, to) => void sketchStore().moveIdea(ideaId, to)} />
           </div>
         ) : (
           <Masonry

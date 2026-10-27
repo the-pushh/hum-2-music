@@ -67,6 +67,19 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
+  /** Moves an idea to a position in its sketch (clamped to the ends) and renumbers the rest 0..n-1. */
+  async function moveIdea(id: string, toIndex: number): Promise<void> {
+    await db.transaction("rw", db.sketches, db.ideas, async () => {
+      const idea = await db.ideas.get(id);
+      if (!idea) throw new Error(`Idea ${id} not found`);
+      const rest = (await listIdeas(idea.sketchId)).filter((i) => i.id !== id);
+      const at = Math.max(0, Math.min(toIndex, rest.length));
+      const reordered = [...rest.slice(0, at), idea, ...rest.slice(at)];
+      await db.ideas.bulkUpdate(reordered.map((i, order) => ({ key: i.id, changes: { order } })));
+      await db.sketches.update(idea.sketchId, { updatedAt: now() });
+    });
+  }
+
   async function removeIdea(id: string): Promise<void> {
     await db.ideas.delete(id);
   }
@@ -81,7 +94,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, removeIdea, capture };
+  return { createSketch, getSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, moveIdea, removeIdea, capture };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

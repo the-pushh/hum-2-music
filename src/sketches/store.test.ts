@@ -149,4 +149,55 @@ describe("sketch store", () => {
     const { sketch } = await store.capture(null, { kind: "color", hex: "#ff5a36" });
     expect(await store.listIdeas(sketch.id)).toMatchObject([{ kind: "color", hex: "#ff5a36" }]);
   });
+
+  describe("reordering", () => {
+    async function sketchWith(...texts: string[]) {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      const ideas = [];
+      for (const text of texts) ideas.push(await store.addIdea(sketch.id, { kind: "note", text }));
+      const order = async () => (await store.listIdeas(sketch.id)).map((i) => (i.kind === "note" ? i.text : i.kind));
+      return { store, sketch, ideas, order };
+    }
+
+    it("moves an idea to the front", async () => {
+      const { store, ideas, order } = await sketchWith("a", "b", "c", "d");
+      await store.moveIdea(ideas[2].id, 0);
+      expect(await order()).toEqual(["c", "a", "b", "d"]);
+    });
+
+    it("moves an idea to the end", async () => {
+      const { store, ideas, order } = await sketchWith("a", "b", "c", "d");
+      await store.moveIdea(ideas[0].id, 3);
+      expect(await order()).toEqual(["b", "c", "d", "a"]);
+    });
+
+    it("moves an idea into the middle", async () => {
+      const { store, ideas, order } = await sketchWith("a", "b", "c", "d");
+      await store.moveIdea(ideas[3].id, 1);
+      expect(await order()).toEqual(["a", "d", "b", "c"]);
+    });
+
+    it("clamps a position past either end", async () => {
+      const { store, ideas, order } = await sketchWith("a", "b", "c");
+      await store.moveIdea(ideas[0].id, 99);
+      await store.moveIdea(ideas[2].id, -5);
+      expect(await order()).toEqual(["c", "b", "a"]);
+    });
+
+    it("keeps the order right after ideas are removed", async () => {
+      const { store, sketch, ideas, order } = await sketchWith("a", "b", "c", "d", "e");
+      await store.removeIdea(ideas[1].id);
+      await store.moveIdea(ideas[4].id, 1);
+      await store.addIdea(sketch.id, { kind: "note", text: "f" });
+      expect(await order()).toEqual(["a", "e", "c", "d", "f"]);
+    });
+
+    it("moves the sketch to the top of the recent list", async () => {
+      const { store, sketch, ideas } = await sketchWith("a", "b");
+      await store.createSketch("Newer");
+      await store.moveIdea(ideas[1].id, 0);
+      expect((await store.listSketches())[0].id).toBe(sketch.id);
+    });
+  });
 });
