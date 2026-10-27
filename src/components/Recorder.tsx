@@ -6,6 +6,7 @@ import RecordPlugin from "wavesurfer.js/dist/plugins/record.esm.js";
 import { Microphone, Stop } from "@phosphor-icons/react";
 import { analyseRecording } from "@/audio/analyse";
 import { formatDuration } from "@/audio/formatDuration";
+import { diagnoseMicFailure } from "@/audio/micErrorMessage";
 import { pickRecordingMime } from "@/audio/recordingFormat";
 import { waveformBars } from "@/audio/waveformStyle";
 import { tokenColor } from "@/ui/tokenColor";
@@ -31,9 +32,25 @@ export function Recorder({ onSave }: Props) {
   const elapsedRef = useRef(0);
   const mountedRef = useRef(true);
   const savingRef = useRef(false);
+  /** Audio so far, in 1 s chunks, so a take interrupted by a locked screen can still be saved. */
+  const chunksRef = useRef<Blob[]>([]);
   const [status, setStatus] = useState<Status>("idle");
   const [elapsed, setElapsed] = useState(0);
   const [error, setError] = useState<string | null>(null);
+
+  // Phones suspend a hidden page (screen lock, app switch) and may never deliver the recorder's final data.
+  // Save what's been recorded so far as soon as the page is hidden.
+  useEffect(() => {
+    const onHidden = () => {
+      if (document.visibilityState === "hidden" && recordRef.current?.isRecording()) saveSoFar();
+    };
+    document.addEventListener("visibilitychange", onHidden);
+    window.addEventListener("pagehide", onHidden);
+    return () => {
+      document.removeEventListener("visibilitychange", onHidden);
+      window.removeEventListener("pagehide", onHidden);
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     mountedRef.current = true;
@@ -69,23 +86,34 @@ export function Recorder({ onSave }: Props) {
     });
     const mime = pickRecordingMime();
     const record = ws.registerPlugin(
-      RecordPlugin.create({ mimeType: mime, scrollingWaveform: true, renderRecordedAudio: false }),
+      RecordPlugin.create({
+        mimeType: mime,
+        scrollingWaveform: true,
+        renderRecordedAudio: false,
+        mediaRecorderTimeslice: 1000,
+      }),
     );
+    chunksRef.current = [];
     wsRef.current = ws;
     recordRef.current = record;
     record.on("record-progress", (ms) => {
       elapsedRef.current = ms / 1000;
       if (mountedRef.current) setElapsed(ms / 1000);
     });
-    record.on("record-end", (blob) => void save(blob, mime));
+    record.on("record-data-available", (chunk) => chunk.size && chunksRef.current.push(chunk));
+    record.on("record-end", (blob) => {
+      // If the take was already saved from chunks (page hidden), teardown cleared recordRef: don't save it twice.
+      if (recordRef.current === record) void save(blob, mime);
+    });
     try {
       await record.startRecording();
       if (mountedRef.current) setStatus("recording");
     } catch {
       teardown();
+      const message = await diagnoseMicFailure();
       if (!mountedRef.current) return;
       setStatus("idle");
-      setError("hum can't reach your microphone. Allow mic access for this site, then try again.");
+      setError(message);
     }
   }
 
@@ -93,6 +121,15 @@ export function Recorder({ onSave }: Props) {
     savingRef.current = true;
     setStatus("saving");
     recordRef.current?.stopRecording();
+  }
+
+  /** Saves the chunks recorded so far and releases the mic, without waiting for the recorder to finish. */
+  function saveSoFar() {
+    const chunks = chunksRef.current;
+    if (!chunks.length) return void recordRef.current?.stopRecording();
+    const mime = chunks[0].type || pickRecordingMime();
+    savingRef.current = true;
+    void save(new Blob(chunks, { type: mime }), mime);
   }
 
   async function save(blob: Blob, requestedMime: string | undefined) {

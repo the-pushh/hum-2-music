@@ -29,7 +29,7 @@ export function ConfirmDialog({ title, body, confirmLabel, onConfirm, onCancel }
         onCancel();
       }}
       aria-labelledby="confirm-title"
-      className="m-auto w-full max-w-sm rounded-2xl border border-line bg-raised p-6 text-ink backdrop:bg-canvas/80"
+      className="m-auto w-11/12 max-w-sm rounded-2xl border border-line bg-raised p-6 text-ink backdrop:bg-canvas/80"
     >
       <h2 id="confirm-title" className="text-lg font-semibold">
         {title}
