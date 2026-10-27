@@ -119,4 +119,15 @@ describe("sketch store", () => {
     expect(await store.getIdea(idea.id)).toEqual(idea);
     expect(await store.getIdea("missing")).toBeUndefined();
   });
+
+  it("keeps an image idea's picture and size", async () => {
+    const store = freshStore();
+    const picture = new Blob([new Uint8Array([9, 8, 7])], { type: "image/jpeg" });
+    const { sketch } = await store.capture(null, { kind: "image", blob: picture, w: 1600, h: 1200 });
+
+    const [idea] = await store.listIdeas(sketch.id);
+    if (idea.kind !== "image") throw new Error(`expected an image idea, got ${idea.kind}`);
+    expect([idea.w, idea.h, idea.blob.type]).toEqual([1600, 1200, "image/jpeg"]);
+    expect(new Uint8Array(await idea.blob.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
+  });
 });

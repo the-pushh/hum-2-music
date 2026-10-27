@@ -6,6 +6,7 @@ import { emptyLyrics } from "@/lyrics/doc";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
 import { Button } from "./Button";
+import { ImagePicker } from "./ImagePicker";
 import { NoteComposer } from "./NoteComposer";
 import { Recorder } from "./Recorder";
 
@@ -37,6 +38,7 @@ export function CaptureBar({ openSketchId }: Props) {
           <TextAa size={20} aria-hidden />
           Lyrics
         </Button>
+        <ImagePicker onSave={(image) => save(image)} />
       </div>
     </section>
   );

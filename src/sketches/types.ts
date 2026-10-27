@@ -22,8 +22,11 @@ export type LyricsDoc = { type: "doc"; content?: unknown[] };
 
 export type LyricsInput = { kind: "lyrics"; doc: LyricsDoc };
 
-/** What a capture adds. Later tickets extend this union (image, link, color). */
-export type IdeaInput = NoteInput | VoiceInput | LyricsInput;
+/** A picture for the moodboard, stored as-is or scaled down (see prepareImage). */
+export type ImageInput = { kind: "image"; blob: Blob; w: number; h: number };
+
+/** What a capture adds. Later tickets extend this union (link, color). */
+export type IdeaInput = NoteInput | VoiceInput | LyricsInput | ImageInput;
 
 export type Idea = IdeaInput & {
   id: string;
