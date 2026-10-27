@@ -200,4 +200,34 @@ describe("sketch store", () => {
       expect((await store.listSketches())[0].id).toBe(sketch.id);
     });
   });
+
+  it("renames a sketch, trimming spaces and moving it to the top", async () => {
+    const store = freshStore();
+    const sketch = await store.createSketch("Sketch, 27 Oct");
+    await store.createSketch("Newer");
+    await store.renameSketch(sketch.id, "  Bus Window  ");
+    const [top] = await store.listSketches();
+    expect([top.id, top.title]).toEqual([sketch.id, "Bus Window"]);
+  });
+
+  it("keeps the old title when renamed to nothing", async () => {
+    const store = freshStore();
+    const sketch = await store.createSketch("Keep me");
+    await store.renameSketch(sketch.id, "   ");
+    expect((await store.getSketch(sketch.id))?.title).toBe("Keep me");
+  });
+
+  it("deletes a sketch with all its ideas, leaving other sketches alone", async () => {
+    const store = freshStore();
+    const { sketch: doomed } = await store.capture(null, { kind: "note", text: "gone" });
+    await store.addIdea(doomed.id, { kind: "color", hex: "#000000" });
+    const { sketch: kept, idea: keptIdea } = await store.capture(null, { kind: "note", text: "stays" });
+
+    await store.deleteSketch(doomed.id);
+
+    expect(await store.getSketch(doomed.id)).toBeUndefined();
+    expect(await store.listIdeas(doomed.id)).toEqual([]);
+    expect((await store.listSketches()).map((s) => s.id)).toEqual([kept.id]);
+    expect(await store.listIdeas(kept.id)).toEqual([keptIdea]);
+  });
 });

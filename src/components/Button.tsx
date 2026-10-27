@@ -4,6 +4,7 @@ const variants = {
   primary: "bg-ink text-canvas hover:bg-ink-muted",
   secondary: "bg-raised text-ink hover:bg-line",
   ghost: "bg-transparent text-ink-muted hover:bg-raised hover:text-ink",
+  danger: "bg-accent text-accent-ink hover:opacity-90",
 };
 
 type Props = ButtonHTMLAttributes<HTMLButtonElement> & { variant?: keyof typeof variants };

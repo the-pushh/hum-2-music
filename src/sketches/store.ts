@@ -24,6 +24,21 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     return sketch;
   }
 
+  /** Renames a sketch. A blank name is ignored, so a sketch always has a title. */
+  async function renameSketch(id: string, title: string): Promise<void> {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    await db.sketches.update(id, { title: trimmed, updatedAt: now() });
+  }
+
+  /** Deletes a sketch and every idea in it. */
+  async function deleteSketch(id: string): Promise<void> {
+    await db.transaction("rw", db.sketches, db.ideas, async () => {
+      await db.ideas.where("sketchId").equals(id).delete();
+      await db.sketches.delete(id);
+    });
+  }
+
   function listSketches(): Promise<Sketch[]> {
     return db.sketches.orderBy("updatedAt").reverse().toArray();
   }
@@ -94,7 +109,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, moveIdea, removeIdea, capture };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, moveIdea, removeIdea, capture };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

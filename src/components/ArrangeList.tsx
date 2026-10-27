@@ -13,14 +13,17 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { DotsSixVertical } from "@phosphor-icons/react";
+import { DotsSixVertical, Trash } from "@phosphor-icons/react";
 import type { Idea } from "@/sketches/types";
 import { ideaSummary } from "./ideaSummary";
 
-type Props = { ideas: Idea[]; onMove: (id: string, toIndex: number) => void };
+type Props = { ideas: Idea[]; onMove: (id: string, toIndex: number) => void; onDelete: (idea: Idea) => void };
 
-/** Drag rows (mouse, touch, or keyboard: Space to lift, arrows to move, Space to drop) to set the sketch's order. */
-export function ArrangeList({ ideas, onMove }: Props) {
+/**
+ * The sketch in edit mode: drag rows to reorder (mouse, touch, or keyboard: Space to lift, arrows to move,
+ * Space to drop) and delete ideas.
+ */
+export function ArrangeList({ ideas, onMove, onDelete }: Props) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     // A short press before dragging, so a touch can still scroll the page.
@@ -48,7 +51,7 @@ export function ArrangeList({ ideas, onMove }: Props) {
       <SortableContext items={ideas.map((i) => i.id)} strategy={verticalListSortingStrategy}>
         <ol className="flex flex-col gap-2" aria-label="Ideas in order">
           {ideas.map((idea) => (
-            <ArrangeRow key={idea.id} idea={idea} />
+            <ArrangeRow key={idea.id} idea={idea} onDelete={() => onDelete(idea)} />
           ))}
         </ol>
       </SortableContext>
@@ -56,7 +59,7 @@ export function ArrangeList({ ideas, onMove }: Props) {
   );
 }
 
-function ArrangeRow({ idea }: { idea: Idea }) {
+function ArrangeRow({ idea, onDelete }: { idea: Idea; onDelete: () => void }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: idea.id });
   const { icon: KindIcon, label } = ideaSummary(idea);
   return (
@@ -80,6 +83,14 @@ function ArrangeRow({ idea }: { idea: Idea }) {
         <KindIcon size={20} className="shrink-0 text-ink-muted" aria-hidden />
       )}
       <span className="min-w-0 flex-1 truncate text-base text-ink">{label}</span>
+      <button
+        type="button"
+        onClick={onDelete}
+        aria-label={`Delete: ${label}`}
+        className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-ink-muted transition duration-300 ease-soft hover:bg-raised hover:text-accent active:scale-98 focus-visible:outline-2 focus-visible:outline-ink"
+      >
+        <Trash size={20} aria-hidden />
+      </button>
     </li>
   );
 }

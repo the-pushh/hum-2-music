@@ -1,21 +1,42 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Masonry } from "masonic";
-import { ArrowLeft, ArrowsDownUp, Check } from "@phosphor-icons/react";
+import { ArrowLeft, Check, PencilSimple, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
-import { sketchStore } from "@/sketches/client";
-import { IdeaCard } from "./IdeaCard";
+import { deleteIdea, deleteSketch, sketchStore } from "@/sketches/client";
+import type { Idea } from "@/sketches/types";
 import { ArrangeList } from "./ArrangeList";
 import { Button } from "./Button";
 import { CaptureBar } from "./CaptureBar";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { EditableTitle } from "./EditableTitle";
+import { IdeaCard } from "./IdeaCard";
+import { ideaSummary } from "./ideaSummary";
+
+/** " and its 1 idea" / " and all 3 of its ideas" / "" for an empty sketch. */
+function andItsIdeas(n: number) {
+  if (n === 0) return "";
+  return n === 1 ? " and its 1 idea" : ` and all ${n} of its ideas`;
+}
 
 export function SketchScreen({ id }: { id: string }) {
   // null means "looked and it isn't there"; undefined means still loading.
   const sketch = useLiveQuery(async () => (await sketchStore().getSketch(id)) ?? null, [id]);
   const ideas = useLiveQuery(() => sketchStore().listIdeas(id), [id]);
-  const [arranging, setArranging] = useState(false);
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [confirming, setConfirming] = useState<{ kind: "idea"; idea: Idea } | { kind: "sketch" } | null>(null);
+
+  async function confirmDelete() {
+    if (!confirming) return;
+    setConfirming(null);
+    if (confirming.kind === "idea") return deleteIdea(confirming.idea.id);
+    await deleteSketch(id);
+    router.replace("/");
+  }
 
   if (sketch === null) {
     return (
@@ -40,7 +61,7 @@ export function SketchScreen({ id }: { id: string }) {
           All sketches
         </Link>
         {sketch ? (
-          <h1 className="text-3xl font-semibold text-ink">{sketch.title}</h1>
+          <EditableTitle title={sketch.title} onRename={(title) => sketchStore().renameSketch(id, title)} />
         ) : (
           <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
         )}
@@ -51,11 +72,19 @@ export function SketchScreen({ id }: { id: string }) {
       </div>
 
       <section aria-label="Ideas" className="flex flex-col gap-3">
-        {ideas && ideas.length > 1 && (
-          <Button variant="ghost" className="w-fit self-end" onClick={() => setArranging((a) => !a)} aria-pressed={arranging}>
-            {arranging ? <Check size={20} aria-hidden /> : <ArrowsDownUp size={20} aria-hidden />}
-            {arranging ? "Done arranging" : "Arrange"}
-          </Button>
+        {sketch && (
+          <div className="flex justify-end gap-2">
+            {editing && (
+              <Button variant="ghost" onClick={() => setConfirming({ kind: "sketch" })}>
+                <Trash size={20} aria-hidden />
+                Delete sketch
+              </Button>
+            )}
+            <Button variant="ghost" onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
+              {editing ? <Check size={20} aria-hidden /> : <PencilSimple size={20} aria-hidden />}
+              {editing ? "Done" : "Edit"}
+            </Button>
+          </div>
         )}
         {ideas === undefined ? (
           <div className="grid grid-cols-2 gap-3" aria-hidden>
@@ -68,9 +97,13 @@ export function SketchScreen({ id }: { id: string }) {
             <p className="text-base text-ink">Nothing in this sketch yet.</p>
             <p className="text-sm text-ink-muted">Record a hum or add a note to start collecting the pieces of this song.</p>
           </div>
-        ) : arranging ? (
+        ) : editing ? (
           <div className="w-full max-w-xl">
-            <ArrangeList ideas={ideas} onMove={(ideaId, to) => void sketchStore().moveIdea(ideaId, to)} />
+            <ArrangeList
+              ideas={ideas}
+              onMove={(ideaId, to) => void sketchStore().moveIdea(ideaId, to)}
+              onDelete={(idea) => setConfirming({ kind: "idea", idea })}
+            />
           </div>
         ) : (
           <Masonry
@@ -83,6 +116,23 @@ export function SketchScreen({ id }: { id: string }) {
           />
         )}
       </section>
+      {confirming && (
+        <ConfirmDialog
+          {...(confirming.kind === "idea"
+            ? {
+                title: "Delete this idea?",
+                body: `"${ideaSummary(confirming.idea).label}" will be removed from this sketch. This can't be undone.`,
+                confirmLabel: "Delete idea",
+              }
+            : {
+                title: "Delete this sketch?",
+                body: `"${sketch?.title}"${andItsIdeas(ideas?.length ?? 0)} will be removed. This can't be undone.`,
+                confirmLabel: "Delete sketch",
+              })}
+          onConfirm={() => void confirmDelete()}
+          onCancel={() => setConfirming(null)}
+        />
+      )}
     </main>
   );
 }
