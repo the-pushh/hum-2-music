@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { CaretRight } from "@phosphor-icons/react";
 import { sketchStore } from "@/sketches/client";
@@ -10,7 +9,6 @@ import { CaptureBar } from "./CaptureBar";
 const updatedAtFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 export function CaptureHome() {
-  const router = useRouter();
   const sketches = useLiveQuery(() => sketchStore().listSketches(), []);
 
   return (
@@ -20,7 +18,7 @@ export function CaptureHome() {
         <h1 className="text-3xl font-semibold text-ink">Catch it before it goes</h1>
       </header>
 
-      <CaptureBar openSketchId={null} onCaptured={(sketch) => router.push(`/s/${sketch.id}`)} />
+      <CaptureBar openSketchId={null} />
 
       <section aria-labelledby="recent" className="flex flex-col gap-3">
         <h2 id="recent" className="text-sm font-semibold text-ink-muted">

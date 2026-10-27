@@ -51,6 +51,22 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     return ideasInOrder(sketchId).toArray();
   }
 
+  function getIdea(id: string): Promise<Idea | undefined> {
+    return db.ideas.get(id);
+  }
+
+  /** Replaces an idea's content (same kind), keeping its place in the sketch. */
+  async function updateIdea(id: string, input: IdeaInput): Promise<void> {
+    await db.transaction("rw", db.sketches, db.ideas, async () => {
+      const idea = await db.ideas.get(id);
+      if (!idea) throw new Error(`Idea ${id} not found`);
+      if (idea.kind !== input.kind) throw new Error(`Idea ${id} is ${idea.kind}, not ${input.kind}`);
+      const { sketchId, order, createdAt } = idea;
+      await db.ideas.put({ ...input, id, sketchId, order, createdAt });
+      await db.sketches.update(sketchId, { updatedAt: now() });
+    });
+  }
+
   async function removeIdea(id: string): Promise<void> {
     await db.ideas.delete(id);
   }
@@ -65,7 +81,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, listSketches, addIdea, listIdeas, removeIdea, capture };
+  return { createSketch, getSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, removeIdea, capture };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

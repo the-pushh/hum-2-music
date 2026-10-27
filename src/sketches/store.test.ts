@@ -1,6 +1,7 @@
 import "fake-indexeddb/auto";
 import { describe, expect, it } from "vitest";
 import { openSketchStore } from "./store";
+import type { LyricsDoc } from "./types";
 
 let n = 0;
 function freshStore(start = Date.UTC(2026, 9, 27, 9, 0)) {
@@ -97,5 +98,25 @@ describe("sketch store", () => {
     expect(idea.durationSec).toBe(12.5);
     expect(idea.peaks).toEqual([0.1, 0.8, 0.4]);
     expect(new Uint8Array(await idea.blob.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]));
+  });
+
+  it("saves edits to a lyrics idea and moves its sketch to the top", async () => {
+    const store = freshStore();
+    const { sketch, idea } = await store.capture(null, { kind: "lyrics", doc: { type: "doc", content: [] } });
+    await store.createSketch("Newer");
+    const doc: LyricsDoc = { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "rain on the glass" }] }] };
+
+    await store.updateIdea(idea.id, { kind: "lyrics", doc });
+
+    const [saved] = await store.listIdeas(sketch.id);
+    expect(saved.kind === "lyrics" && saved.doc).toEqual(doc);
+    expect((await store.listSketches())[0].id).toBe(sketch.id);
+  });
+
+  it("gets an idea by id, and nothing for an unknown id", async () => {
+    const store = freshStore();
+    const { idea } = await store.capture(null, { kind: "note", text: "hello" });
+    expect(await store.getIdea(idea.id)).toEqual(idea);
+    expect(await store.getIdea("missing")).toBeUndefined();
   });
 });

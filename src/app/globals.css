@@ -50,3 +50,20 @@
     animation: none !important;
   }
 }
+
+/* Lyrics editor: one paragraph per sung line, syllable count in the right margin. */
+@layer components {
+  .lyrics .ProseMirror {
+    @apply flex flex-col gap-3;
+  }
+  .lyrics .ProseMirror:focus {
+    outline: none;
+  }
+  .lyrics p {
+    @apply relative pr-10 text-lg text-ink;
+  }
+  .lyrics p[data-syllables]::after {
+    content: attr(data-syllables);
+    @apply absolute top-1 right-0 font-mono text-xs text-ink-muted tabular-nums;
+  }
+}

@@ -1,4 +1,5 @@
 import type { Idea } from "@/sketches/types";
+import { LyricsCard } from "./LyricsCard";
 import { VoiceCard } from "./VoiceCard";
 
 export function IdeaCard({ data }: { data: Idea }) {
@@ -11,5 +12,7 @@ export function IdeaCard({ data }: { data: Idea }) {
       );
     case "voice":
       return <VoiceCard idea={data} />;
+    case "lyrics":
+      return <LyricsCard idea={data} />;
   }
 }

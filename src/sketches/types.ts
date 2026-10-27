@@ -17,8 +17,13 @@ export type VoiceInput = {
   peaks: number[];
 };
 
-/** What a capture adds. Later tickets extend this union (lyrics, image, link, color). */
-export type IdeaInput = NoteInput | VoiceInput;
+/** A rich-text document as the lyrics editor saves it (Tiptap/ProseMirror JSON). */
+export type LyricsDoc = { type: "doc"; content?: unknown[] };
+
+export type LyricsInput = { kind: "lyrics"; doc: LyricsDoc };
+
+/** What a capture adds. Later tickets extend this union (image, link, color). */
+export type IdeaInput = NoteInput | VoiceInput | LyricsInput;
 
 export type Idea = IdeaInput & {
   id: string;
