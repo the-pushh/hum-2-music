@@ -2,11 +2,13 @@
 
 import { useEffect } from "react";
 import { ArrowClockwise, MusicNotes } from "@phosphor-icons/react";
-import { isTranscribing, transcribeIdea } from "@/melody/client";
+import { isTranscribing, takeOf, transcribeIdea } from "@/melody/client";
 import { keyName } from "@/melody/keyName";
 import type { VoiceIdea } from "@/sketches/types";
 import { Button } from "./Button";
+import { CleanupControls } from "./CleanupControls";
 import { NoteStrip } from "./NoteStrip";
+import { PianoButton } from "./PianoButton";
 
 /** The melody hum heard in a voice idea: transcription status, key and notes. */
 export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
@@ -69,6 +71,10 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
         <span className="text-ink-muted tabular-nums">{notes.length} notes</span>
       </div>
       <NoteStrip notes={notes} label={`${notes.length} notes in ${keyName(t.key)}`} />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <PianoButton notes={notes} bpm={takeOf(idea).bpm} />
+        <CleanupControls idea={idea} />
+      </div>
     </div>
   );
 }
