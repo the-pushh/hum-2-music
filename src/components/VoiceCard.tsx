@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { useWavesurfer } from "@wavesurfer/react";
 import { Pause, Play } from "@phosphor-icons/react";
+import { startedPlaying, stoppedPlaying } from "@/audio/exclusivePlayback";
 import { formatDuration } from "@/audio/formatDuration";
 import { waveformBars } from "@/audio/waveformStyle";
 import { tokenColor } from "@/ui/tokenColor";
@@ -36,6 +37,20 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
   useEffect(() => {
     wavesurfer?.loadBlob(blob, peaks, durationSec).catch(() => setFailed(true));
   }, [wavesurfer, idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // One hum at a time: playing this card pauses whichever hum was already playing.
+  useEffect(() => {
+    if (!wavesurfer) return;
+    const unsubscribe = [
+      wavesurfer.on("play", () => startedPlaying(wavesurfer)),
+      wavesurfer.on("pause", () => stoppedPlaying(wavesurfer)),
+      wavesurfer.on("finish", () => stoppedPlaying(wavesurfer)),
+    ];
+    return () => {
+      unsubscribe.forEach((off) => off());
+      stoppedPlaying(wavesurfer);
+    };
+  }, [wavesurfer]);
 
   function seekBy(deltaSec: number) {
     if (!wavesurfer) return;
