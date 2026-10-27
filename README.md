@@ -43,3 +43,14 @@ stop it (Ctrl+C) when you're done.
 - Lock the screen or switch apps mid-recording, come back: the take so far is saved as a card.
 - Deny mic access once: hum explains how to allow it.
 - The mic indicator goes away after every recording.
+
+### Melody checks (M2)
+
+- Hum "Twinkle Twinkle" freely. The pitch line follows your voice while you record, then the card shows
+  "Hearing the notes", a key and a strip of notes. **Play as piano** should be recognizably the tune.
+- Turn on **Click**, keep 90 BPM and 4 bars, and record. You hear a one-bar count-in, then a click. The take
+  stops by itself. The card's notes should sit on the beat, and no extra notes should come from the click.
+- Pick a key before recording: the pitch line's guides show only that key's notes, and the card shows that key.
+- On the card, switch **Raw**/**Clean**, **Snap**/**As sung** and **1/8**/**1/16**: the strip changes at once.
+- Play the piano once, turn on airplane mode, reload, and play it again: it should still work.
+- Watch the pitch line: if it stutters, or the recording skips while it draws, note the phone model.
