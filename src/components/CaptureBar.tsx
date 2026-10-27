@@ -8,6 +8,7 @@ import { emptyLyrics } from "@/lyrics/doc";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
 import { Button } from "./Button";
+import { ColorPicker } from "./ColorPicker";
 import { ImagePicker } from "./ImagePicker";
 import { LinkComposer } from "./LinkComposer";
 import { NoteComposer } from "./NoteComposer";
@@ -48,6 +49,7 @@ export function CaptureBar({ openSketchId }: Props) {
         </Button>
         <ImagePicker onSave={(image) => save(image)} />
         <LinkComposer onSave={saveLink} />
+        <ColorPicker onSave={(color) => save(color)} />
       </div>
     </section>
   );

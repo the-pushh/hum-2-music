@@ -39,8 +39,11 @@ export type LinkInput = {
   author?: string;
 };
 
-/** What a capture adds. A later ticket extends this union (color). */
-export type IdeaInput = NoteInput | VoiceInput | LyricsInput | ImageInput | LinkInput;
+/** A palette swatch, as "#rrggbb". */
+export type ColorInput = { kind: "color"; hex: string };
+
+/** Everything a capture can add to a sketch. */
+export type IdeaInput = NoteInput | VoiceInput | LyricsInput | ImageInput | LinkInput | ColorInput;
 
 export type Idea = IdeaInput & {
   id: string;

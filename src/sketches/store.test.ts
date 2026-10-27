@@ -143,4 +143,10 @@ describe("sketch store", () => {
     const { sketch } = await store.capture(null, link);
     expect(await store.listIdeas(sketch.id)).toMatchObject([link]);
   });
+
+  it("keeps a color idea", async () => {
+    const store = freshStore();
+    const { sketch } = await store.capture(null, { kind: "color", hex: "#ff5a36" });
+    expect(await store.listIdeas(sketch.id)).toMatchObject([{ kind: "color", hex: "#ff5a36" }]);
+  });
 });
