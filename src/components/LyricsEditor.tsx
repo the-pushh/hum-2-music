@@ -4,18 +4,22 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { EditorContent, useEditor, type JSONContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { ArrowLeft, Plus } from "@phosphor-icons/react";
+import { ArrowLeft, MusicNotes, Plus } from "@phosphor-icons/react";
 import { SectionNode } from "@/lyrics/SectionNode";
 import { SyllableCounts } from "@/lyrics/SyllableCounts";
+import { wordAtCursor } from "@/lyrics/wordAtCursor";
 import { sketchStore } from "@/sketches/client";
 import type { LyricsDoc, LyricsInput } from "@/sketches/types";
 import { Button } from "./Button";
+import { RhymeDrawer } from "./RhymeDrawer";
 
 const SAVE_DELAY_MS = 600;
 type SaveState = "saved" | "saving" | "failed";
 
 export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; ideaId: string; initial: LyricsDoc }) {
   const [saveState, setSaveState] = useState<SaveState>("saved");
+  const [rhymeWord, setRhymeWord] = useState<string | null>(null);
+  const [cursorWord, setCursorWord] = useState("");
   const pending = useRef<LyricsDoc | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
@@ -59,6 +63,7 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
     ],
     content: initial as JSONContent,
     editorProps: { attributes: { "aria-label": "Lyrics", spellcheck: "true" } },
+    onSelectionUpdate: ({ editor }) => setCursorWord(wordAtCursor(editor)),
     onUpdate: ({ editor }) => {
       pending.current = editor.getJSON() as LyricsDoc;
       setSaveState("saving");
@@ -69,6 +74,15 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
 
   // Save whatever is still pending when leaving the editor.
   useEffect(() => () => void flush(), []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Puts the rhyme at the cursor, replacing a selection, with a space if it would touch the previous word. */
+  function insertRhyme(rhyme: string) {
+    if (!editor) return;
+    const { from, to, $from } = editor.state.selection;
+    const charBefore = $from.parent.textContent.slice(0, $from.parentOffset).slice(-1);
+    const text = from === to && charBefore && !/\s/.test(charBefore) ? ` ${rhyme}` : rhyme;
+    editor.chain().focus().insertContentAt({ from, to }, text).run();
+  }
 
   function addSection() {
     if (!editor) return;
@@ -82,7 +96,7 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
   }
 
   return (
-    <main className="mx-auto flex min-h-full w-full max-w-2xl flex-col gap-6 px-4 py-8">
+    <main className={`mx-auto flex min-h-full w-full max-w-2xl flex-col gap-6 px-4 py-8 ${rhymeWord ? "pb-96" : ""}`}>
       <header className="flex items-center justify-between gap-4">
         <Link
           href={`/s/${sketchId}`}
@@ -101,17 +115,30 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
       ) : (
         <div className="h-32 animate-pulse rounded-2xl bg-surface" aria-hidden />
       )}
-      <Button
-        variant="secondary"
-        className="w-fit"
-        // Keep focus in the editor so the new section's first line gets the cursor.
-        onMouseDown={(e) => e.preventDefault()}
-        onClick={addSection}
-        disabled={!editor}
-      >
-        <Plus size={20} aria-hidden />
-        Add section
-      </Button>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="secondary"
+          className="w-fit"
+          // Keep focus in the editor so the new section's first line gets the cursor.
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={addSection}
+          disabled={!editor}
+        >
+          <Plus size={20} aria-hidden />
+          Add section
+        </Button>
+        <Button
+          variant="secondary"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => setRhymeWord(cursorWord)}
+          disabled={!cursorWord}
+          title={cursorWord ? undefined : "Put the cursor on a word to find rhymes"}
+        >
+          <MusicNotes size={20} aria-hidden />
+          {cursorWord ? `Rhymes for ${cursorWord}` : "Rhymes"}
+        </Button>
+      </div>
+      {rhymeWord && <RhymeDrawer key={rhymeWord} word={rhymeWord} onPick={insertRhyme} onClose={() => setRhymeWord(null)} />}
     </main>
   );
 }
