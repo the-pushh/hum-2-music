@@ -5,6 +5,7 @@ import { TextAa } from "@phosphor-icons/react";
 import { captureLink } from "@/links/captureLink";
 import type { LinkTarget } from "@/links/parseLink";
 import { emptyLyrics } from "@/lyrics/doc";
+import { transcribeIdea } from "@/melody/client";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
 import { Button } from "./Button";
@@ -24,7 +25,8 @@ export function CaptureBar({ openSketchId }: Props) {
   const router = useRouter();
 
   async function save(input: IdeaInput, stillMounted = true) {
-    const { sketch } = await captureIdea(openSketchId, input);
+    const { sketch, idea } = await captureIdea(openSketchId, input);
+    if (idea.kind === "voice") void transcribeIdea(idea);
     if (stillMounted && !openSketchId) router.push(`/s/${sketch.id}`);
   }
 

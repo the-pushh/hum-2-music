@@ -1,4 +1,5 @@
 import type { LinkProvider } from "@/links/parseLink";
+import type { Take, Transcription } from "@/melody/types";
 
 export type Sketch = {
   id: string;
@@ -17,6 +18,10 @@ export type VoiceInput = {
   durationSec: number;
   /** Normalised 0..1 amplitudes, so the card can draw the waveform without decoding the audio. Empty if analysis failed. */
   peaks: number[];
+  /** Tempo, click and chosen key at recording time. Missing on takes from before M2, which count as free takes. */
+  take?: Take;
+  /** The notes hum heard in the take. Missing until it has been transcribed. */
+  transcription?: Transcription;
 };
 
 /** A rich-text document as the lyrics editor saves it (Tiptap/ProseMirror JSON). */
