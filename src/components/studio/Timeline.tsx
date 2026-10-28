@@ -48,7 +48,9 @@ export function Timeline({ title, selectedTrackId, onSelect }: Props) {
             <button type="button" popoverTarget="studio-tempo" className={chip}>
               {project.bpm} bpm
             </button>
-            <span className={chip}>{project.key.replace("#", "♯")}</span>
+            <span className={chip}>
+              {project.key.replace("#", "♯")} {project.scale}
+            </span>
             <span className={chip}>
               {project.timeSignature[0]}/{project.timeSignature[1]}
             </span>

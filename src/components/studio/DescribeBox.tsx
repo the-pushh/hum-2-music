@@ -5,26 +5,28 @@ import { ArrowUp, Check, Microphone, Sparkle, Stop, X } from "@phosphor-icons/re
 import { canRecognizeSpeech, listenForPhrase, type Listening } from "@/audio/speech";
 import { applyDirection } from "@/studio/direction/apply";
 import { contextOf } from "@/studio/direction/context";
-import type { DescribeError, DescribeResult } from "@/studio/direction/describe";
+import { postDescription } from "@/studio/direction/client";
+import type { DescribeError } from "@/studio/direction/describe";
 import type { Direction } from "@/studio/direction/schema";
 import { useProjectStore } from "@/studio/store/project";
+import { Button } from "../Button";
 
 type State =
   | { status: "idle" }
   | { status: "reading"; controller: AbortController }
   | { status: "read"; direction: Direction }
-  | { status: "failed"; error: DescribeError | "cancelled" };
+  | { status: "failed"; message: string; quiet?: boolean };
 
 /** What to tell the songwriter, and what to do next, for each way reading can fail. */
-const errorText: Record<DescribeError | "cancelled", string> = {
+const errorText: Record<DescribeError, string> = {
   empty: "Say what you want the song to feel like.",
+  "bad-request": "hum couldn't send this song's settings to Claude. Reload the studio and try again.",
   "not-configured": "Describe it isn't set up yet. Add ANTHROPIC_API_KEY to .env.local and restart hum.",
   offline: "Couldn't reach Claude. Check your connection and try again.",
   upstream: "Claude had a problem on its side. Try again in a moment.",
   timeout: "Claude took too long. Try again, or say it more simply.",
   "invalid-output": "Claude couldn't turn that into changes. Try saying it another way.",
   declined: "Claude couldn't help with that description. Try saying it another way.",
-  cancelled: "Stopped. Your song hasn't changed.",
 };
 
 const round =
@@ -52,16 +54,10 @@ export function DescribeBox() {
     const controller = new AbortController();
     setState({ status: "reading", controller });
     try {
-      const response = await fetch("/api/describe", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ description: text, context: contextOf(project) }),
-        signal: controller.signal,
-      });
-      const result: DescribeResult = response.ok ? await response.json() : { ok: false, error: "upstream" };
-      setState(result.ok ? { status: "read", direction: result.direction } : { status: "failed", error: result.error });
+      const result = await postDescription({ description: text, context: contextOf(project) }, controller.signal);
+      setState(result.ok ? { status: "read", direction: result.direction } : { status: "failed", message: errorText[result.error] });
     } catch {
-      setState({ status: "failed", error: controller.signal.aborted ? "cancelled" : "offline" });
+      setState({ status: "failed", message: "Stopped. Your song hasn't changed.", quiet: true });
     }
   }
 
@@ -80,7 +76,7 @@ export function DescribeBox() {
     listenRef.current = listenForPhrase((result) => {
       listenRef.current = null;
       setListening(false);
-      if ("error" in result) return setState({ status: "failed", error: "empty" });
+      if ("error" in result) return setState({ status: "failed", message: result.error });
       setWords(result.text);
       void read(result.text);
     });
@@ -106,7 +102,7 @@ export function DescribeBox() {
           id="describe-it"
           value={words}
           onChange={(e) => setWords(e.target.value)}
-          placeholder="Describe it: “slower, half-time, chill”"
+          placeholder="Describe it: “slower, half time, chill”"
           maxLength={500}
           enterKeyHint="send"
           className="h-10 min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-muted focus-visible:outline-none"
@@ -140,23 +136,23 @@ export function DescribeBox() {
         {state.status === "read" && state.direction.understood && (
           <div className="flex flex-wrap items-center gap-2">
             <p className="w-full text-base font-semibold text-ink sm:w-auto sm:flex-1">{state.direction.summary}</p>
-            <button type="button" onClick={() => apply(state.direction)} className="inline-flex h-10 items-center gap-2 rounded-full bg-ink px-4 text-sm font-semibold text-canvas transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+            <Button className="text-sm" onClick={() => apply(state.direction)}>
               <Check size={16} weight="bold" aria-hidden />
               Apply
-            </button>
-            <button type="button" onClick={() => setState({ status: "idle" })} className="inline-flex h-10 items-center rounded-full px-4 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:bg-raised hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
+            </Button>
+            <Button variant="ghost" className="text-sm" onClick={() => setState({ status: "idle" })}>
               Not this
-            </button>
+            </Button>
           </div>
         )}
         {state.status === "read" && !state.direction.understood && (
           <p className="text-sm text-ink">
-            hum didn&apos;t find anything to change in that. Try the tempo (“around 80”), the drums (“four on the floor”), the chords (“lush”), the bass (“walking”) or the energy (“chill”).
+            hum didn&apos;t find anything to change in that. Try the tempo (“around 80”), the key (“in D”, “darker”), the drums (“four on the floor”), the chords (“lush”), the bass (“walking”), the energy (“chill”) or a sound (“the hook on strings”).
           </p>
         )}
         {state.status === "failed" && (
-          <p role={state.error === "cancelled" ? undefined : "alert"} className={`text-sm ${state.error === "cancelled" ? "text-ink-muted" : "text-accent"}`}>
-            {errorText[state.error]}
+          <p role={state.quiet ? undefined : "alert"} className={`text-sm ${state.quiet ? "text-ink-muted" : "text-accent"}`}>
+            {state.message}
           </p>
         )}
         {state.status === "idle" && <p className="text-xs text-ink-muted">Your words and the song&apos;s settings go to Claude. Your recordings and lyrics don&apos;t.</p>}

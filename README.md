@@ -76,6 +76,19 @@ stop it (Ctrl+C) when you're done.
 - Tap **Export MIDI**, then open the file in another DAW (GarageBand, Logic, Ableton…): one track per part, drums
   on the drum channel, the right tempo.
 
+### Describe it checks (M5)
+
+With `ANTHROPIC_API_KEY` in `.env.local` (see Describe it above), open a sketch with a hum in the studio:
+
+- Tap the Style chip: pick each drum feel, then chords, chord rhythm, bass and energy. Generated parts change straight away, and one Undo takes each pick back.
+- Type "slower, half time, chill" in Describe it. The summary line names each change before anything happens. Apply it, listen, then Undo once: everything comes back.
+- Try "in D", then "darker": the key chip changes, and your hum moves with it (minor lowers its 3rd, 6th and 7th). Drums never move.
+- Try "put the hook on strings": the hum's track plays as strings.
+- Speak a description with the mic button, on a phone too.
+- Turn off Wi-Fi and describe something: it should say it couldn't reach Claude. Remove the key and restart: it should say Describe it isn't set up.
+- On a melody card, type "something dreamy and 80s" into the instrument prompt: Claude should offer a sound.
+- Export MIDI after a key change: the file has the moved notes.
+
 ## Sound credits
 
 hum's instruments are played by [smplr](https://github.com/danigb/smplr) (MIT) from these sample sets:

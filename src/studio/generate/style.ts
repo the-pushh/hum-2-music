@@ -26,7 +26,7 @@ export const styleChoices = {
 export const styleLabel: Record<Style[keyof Style], string> = {
   "pop-rock": "Pop/rock",
   "four-on-the-floor": "Four on the floor",
-  "half-time": "Half-time",
+  "half-time": "Half time",
   "boom-bap": "Boom bap",
   none: "None",
   triads: "Triads",

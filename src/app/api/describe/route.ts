@@ -33,8 +33,8 @@ const requestSchema = z.object({
   }),
 });
 
-/** Claude answers in a few seconds; past this the studio says so rather than leaving the songwriter waiting. */
-const timeoutMs = 20_000;
+/** Claude answers in a few seconds; past this (with one retry, at most about 25 s) the studio says so. */
+const timeoutMs = 12_000;
 
 /**
  * Reads a description of the song into a Direction with Claude. The key stays on the server (ANTHROPIC_API_KEY in
@@ -42,7 +42,7 @@ const timeoutMs = 20_000;
  */
 export async function POST(request: Request): Promise<Response> {
   const body = requestSchema.safeParse(await request.json().catch(() => null));
-  if (!body.success) return Response.json({ error: "bad-request" }, { status: 400 });
+  if (!body.success) return Response.json({ ok: false, error: "bad-request" } satisfies DescribeResult, { status: 400 });
   if (!process.env.ANTHROPIC_API_KEY && !process.env.ANTHROPIC_AUTH_TOKEN) {
     return Response.json({ ok: false, error: "not-configured" } satisfies DescribeResult);
   }

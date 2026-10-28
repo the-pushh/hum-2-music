@@ -5,9 +5,18 @@ import { Check, Microphone, Stop } from "@phosphor-icons/react";
 import { canRecognizeSpeech, listenForPhrase, type Listening } from "@/audio/speech";
 import { instrumentIds, instruments, type InstrumentId } from "@/instruments/instruments";
 import { askClaudeForInstrument } from "@/instruments/askClaude";
+import type { DescribeError } from "@/studio/direction/describe";
 import { readInstruction } from "@/instruments/readInstruction";
 import { sketchStore } from "@/sketches/client";
 import type { VoiceIdea } from "@/sketches/types";
+
+/** Why Claude couldn't be asked, when that's worth knowing; otherwise the plain nudge says it all. */
+const unavailable: Partial<Record<DescribeError, string>> = {
+  "not-configured": "Claude isn't set up for hum yet (see the README), so only instrument names work for now.",
+  offline: "Couldn't reach Claude, so only instrument names work offline.",
+  timeout: "Claude took too long.",
+  upstream: "Claude had a problem on its side.",
+};
 
 /** A pill on the bright melody card: dark when chosen, faint dark otherwise. */
 const chip =
@@ -18,7 +27,7 @@ const roundButton =
   "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas/10 transition duration-300 ease-soft hover:bg-canvas/20 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-canvas disabled:opacity-50 aria-pressed:bg-canvas aria-pressed:text-ink";
 
 /** What hum made of the songwriter's words; `asking` while Claude is reading words the keyword reader couldn't. */
-type Heard = { words: string; instrument: InstrumentId | undefined; asking?: boolean };
+type Heard = { words: string; instrument: InstrumentId | undefined; asking?: boolean; claudeUnavailable?: string };
 
 /**
  * "What should it play as?" on a melody card: asked once its notes are ready, and again whenever the songwriter taps
@@ -65,10 +74,11 @@ export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea;
     setHeard({ words: text, instrument: undefined, asking: true });
     const controller = new AbortController();
     askRef.current = controller;
-    const answer = await askClaudeForInstrument(idea, text, controller.signal);
-    if (controller.signal.aborted) return;
-    // Whatever went wrong, the nudge and the chips are still there.
-    setHeard({ words: text, instrument: "instrument" in answer ? answer.instrument : undefined });
+    const answer = await askClaudeForInstrument(idea, text, controller.signal).catch(() => null);
+    if (!answer || controller.signal.aborted) return;
+    // Whatever went wrong, the nudge and the chips are still there; when Claude couldn't be asked, it says why.
+    if ("error" in answer) return setHeard({ words: text, instrument: undefined, claudeUnavailable: unavailable[answer.error] });
+    setHeard({ words: text, instrument: answer.instrument });
   }
 
   function submit(e: FormEvent) {
@@ -169,6 +179,7 @@ export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea;
         {heard && !heard.instrument && !heard.asking && (
           <span className="px-1 text-xs font-semibold">
             hum didn&apos;t catch an instrument in “{heard.words}”. Try “piano”, “strings” or “bass”, or tap one above.
+          {heard.claudeUnavailable && ` ${heard.claudeUnavailable}`}
           </span>
         )}
         {error && (

@@ -7,14 +7,14 @@ export type { DescribeContext } from "./context";
 
 export type DescribeRequest = { description: string; context: DescribeContext };
 
-export type DescribeError = "empty" | "not-configured" | "offline" | "upstream" | "timeout" | "invalid-output" | "declined";
+export type DescribeError = "empty" | "bad-request" | "not-configured" | "offline" | "upstream" | "timeout" | "invalid-output" | "declined";
 export type DescribeResult = { ok: true; direction: Direction } | { ok: false; error: DescribeError };
 
 /** The one Claude call this needs, so tests can stand in for it. */
 export type ParseDirection = (
   params: Anthropic.Beta.Messages.MessageCreateParamsNonStreaming,
   options?: { signal?: AbortSignal },
-) => Promise<{ stop_reason: string | null; parsed_output: unknown }>;
+) => Promise<Pick<Anthropic.Beta.Messages.BetaMessage, "stop_reason"> & { parsed_output: unknown }>;
 
 const system = `You help a songwriter shape a song sketch in a music app called hum. They describe what they want in their own words; you turn it into a Direction: only the changes their words ask for.
 
@@ -31,7 +31,7 @@ What you can change:
 
 Leave out anything the words don't ask for. Moods map to style where it's clear ("chill" is low energy; "dancey" is four-on-the-floor). If nothing in the words maps to a change you can make, set understood to false and leave the summary empty.
 
-The summary is one short line the songwriter sees before applying, naming each change in a few words, separated by " · ", like "72 BPM · half-time drums · low energy". Name a re-voiced track as "Hum 1 on strings". Name a key change as "in D", and a mode change as "moved to minor" or "moved to major", so the songwriter knows their melody will change. No other text.`;
+The summary is one short line the songwriter sees before applying, written without hyphens ("half time", not "half-time"), naming each change in a few words, separated by " · ", like "72 BPM · half time drums · low energy". Name a re-voiced track as "Hum 1 on strings". Name a key change as "in D", and a mode change as "moved to minor" or "moved to major", so the songwriter knows their melody will change. No other text.`;
 
 /**
  * Reads a songwriter's description of their song into a Direction with Claude. Only the words and the arrangement's
@@ -43,7 +43,8 @@ export async function readDescription({ description, context }: DescribeRequest,
     const response = await parse(
       {
         model: "claude-opus-5-5",
-        max_tokens: 16000,
+        // A Direction is a few hundred tokens of JSON; this leaves room without inviting a long reply.
+        max_tokens: 2048,
         // A short, well-specified reading: low effort keeps it quick.
         output_config: { effort: "low", format: betaZodOutputFormat(directionSchema) },
         // If Claude's safety classifiers decline, the API retries on Anthropic's recommended fallback model.
