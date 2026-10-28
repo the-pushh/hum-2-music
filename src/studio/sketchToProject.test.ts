@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { MelodyHeard, Note as HumNote, Transcription } from "@/melody/types";
+import type { BeatHeard, MelodyHeard, Note as HumNote, Transcription } from "@/melody/types";
 import type { Idea, Sketch, VoiceIdea } from "@/sketches/types";
 import { heardOf, refreshHum, sketchToProject, staleHums, type HeardIdea } from "./sketchToProject";
 
@@ -20,6 +20,26 @@ const done = (clean: HumNote[], extra: Partial<Done> = {}): Done => ({
   showRaw: false,
   ...extra,
 });
+
+/** Kick, hat, snare, hat: one beat of a backbeat, snapped. */
+const backbeat: HumNote[] = [
+  { pitch: 36, start: 0, duration: 0.25, velocity: 1 },
+  { pitch: 42, start: 0.5, duration: 0.25, velocity: 0.5 },
+  { pitch: 38, start: 1, duration: 0.25, velocity: 0.8 },
+  { pitch: 42, start: 1.5, duration: 0.25, velocity: 0.5 },
+];
+
+const beatDone = (clean: HumNote[], extra: Partial<BeatHeard> = {}): BeatHeard => ({
+  status: "done",
+  kind: "beat",
+  raw: [{ pitch: 38, start: 0.05, duration: 0.25, velocity: 0.6 }],
+  clean,
+  grid: 16,
+  showRaw: false,
+  ...extra,
+});
+
+const beatTake = (bpm = 90): VoiceIdea["take"] => ({ mode: "beat", bpm, click: true });
 
 let order = 0;
 function hum(transcription?: Transcription, take?: VoiceIdea["take"]): VoiceIdea {
@@ -106,6 +126,39 @@ describe("sketchToProject", () => {
     expect(project.key).toBe("C");
   });
 
+  it("turns a beat take into a drum track playing its hits on the drum machine", () => {
+    const beat = hum(beatDone(backbeat), beatTake(110));
+    const project = sketchToProject(sketch, [beat]);
+    expect(project.tracks).toHaveLength(1);
+    const [track] = project.tracks;
+    expect(track).toMatchObject({ name: "Beat 1", type: "drum", color: "drums", instrumentPreset: "hum-drums" });
+    expect(track.origin).toEqual({ kind: "hum", ideaId: beat.id });
+    const [clip] = project.clips;
+    expect(clip).toMatchObject({ trackId: track.id, type: "drum", startBar: 0, lengthBars: 1 });
+    expect(clip.notes!.map((n) => [n.pitch, n.startBeat, n.velocity])).toEqual([
+      [36, 0, 127],
+      [42, 0.5, 64],
+      [38, 1, 102],
+      [42, 1.5, 64],
+    ]);
+  });
+
+  it("makes a project from a Sketch with only beats, with no empty melody track", () => {
+    const project = sketchToProject(sketch, [hum(beatDone(backbeat), beatTake(100))]);
+    expect(project.tracks.map((t) => t.type)).toEqual(["drum"]);
+    expect(project.bpm).toBe(100);
+    expect(project.key).toBe("C");
+  });
+
+  it("takes the tempo from the first take, beat or melody, and the key from the first melody", () => {
+    const minor = done(twinkle, { key: { tonic: 9, mode: "minor" } });
+    const project = sketchToProject(sketch, [hum(beatDone(backbeat), beatTake(120)), hum(minor, { bpm: 100, click: true })]);
+    expect(project.tracks.map((t) => t.name)).toEqual(["Beat 1", "Hum 1"]);
+    expect(project.bpm).toBe(120);
+    expect(project.key).toBe("A");
+    expect(project.scale).toBe("minor");
+  });
+
   it("gives an empty hum a one bar clip", () => {
     const project = sketchToProject(sketch, [hum(done([]))]);
     expect(project.clips[0]).toMatchObject({ lengthBars: 1, notes: [] });
@@ -157,6 +210,25 @@ describe("refreshing a hum's track", () => {
     expect(notesOf(refreshed, "Hum 1")).toEqual([72]);
     expect(notesOf(refreshed, "Hum 2")).toEqual([60]);
     expect(refreshed.tracks).toEqual(editedOther.tracks);
+  });
+
+  it("finds a beat whose hits changed since the arrangement was made", () => {
+    const beat = hum(beatDone(backbeat), beatTake());
+    const project = sketchToProject(sketch, [beat]);
+    const heard = heardOf([beat]);
+    const regridded = { ...beat, transcription: beatDone(backbeat.slice(0, 2)) };
+    expect(staleHums({ project, heard }, [beat])).toEqual([]);
+    expect(staleHums({ project, heard }, [regridded]).map((i) => i.id)).toEqual([beat.id]);
+  });
+
+  it("adds a new beat as a drum track", () => {
+    const project = sketchToProject(sketch, [hum(done(twinkle))]);
+    const beat = hum(beatDone(backbeat), beatTake()) as HeardIdea;
+    const refreshed = refreshHum(project, beat);
+    expect(refreshed.tracks.map((t) => [t.name, t.type])).toEqual([
+      ["Hum 1", "midi"],
+      ["Beat 1", "drum"],
+    ]);
   });
 
   it("adds a new track for a hum the arrangement doesn't have yet", () => {

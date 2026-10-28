@@ -13,7 +13,7 @@ import { PianoRoll } from "./PianoRoll";
 import { roleBg } from "./roleColors";
 import { Timeline } from "./Timeline";
 
-/** A Sketch's studio: its hums as tracks on a timeline you can play, edit and fill out. */
+/** A Sketch's studio: its hums and beats as tracks on a timeline you can play, edit and fill out. */
 export function StudioScreen({ sketchId }: { sketchId: string }) {
   const { state, refresh, keep } = useArrangement(sketchId);
   const project = useProjectStore((s) => s.project);
@@ -54,7 +54,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
       {state.status === "ready" && state.stale.length > 0 && (
         <div role="status" className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface p-2">
           <p className="w-full px-1 text-sm text-ink sm:w-auto sm:flex-1">
-            {state.stale.length === 1 ? "A hum has" : `${state.stale.length} hums have`} new notes since you last opened the studio.
+            {state.stale.length === 1 ? "A take has" : `${state.stale.length} takes have`} new notes since you last opened the studio.
           </p>
           <Button variant="secondary" onClick={() => refresh(state.stale)}>
             Use new notes
@@ -77,7 +77,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
           <Timeline title={sketch?.title ?? "Studio"} selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
           {!project.clips.length && (
             <p className="px-2 text-sm text-ink-muted">
-              No hums in this sketch have notes yet. Transcribe a hum on the sketch page, or tap a track to write notes yourself.
+              Nothing in this sketch has been heard yet. Record a melody or a beat on the sketch page, or tap a track to write notes yourself.
             </p>
           )}
           {selected && (

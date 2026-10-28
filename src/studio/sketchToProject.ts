@@ -1,5 +1,5 @@
 import { takeOf } from "@/melody/client";
-import { referenceBpm, type MelodyHeard, type Note as HumNote } from "@/melody/types";
+import { referenceBpm, type BeatHeard, type MelodyHeard, type Note as HumNote } from "@/melody/types";
 import type { ArrangementInput, Idea, Sketch, VoiceIdea } from "@/sketches/types";
 import { humPresets } from "./audio/humVoices";
 import { NOTE_NAMES } from "./music";
@@ -7,24 +7,27 @@ import type { Clip, Note, Project, Track } from "./types";
 
 const beatsPerBar = 4;
 
-/** A voice Idea with notes to show: transcribed, and not still pending or failed. */
-export type HeardIdea = VoiceIdea & { transcription: MelodyHeard };
+/** A voice Idea with notes or hits to show: heard, and not still pending or failed. */
+export type HeardIdea = VoiceIdea & { transcription: MelodyHeard | BeatHeard };
 
-const isHeard = (idea: Idea): idea is HeardIdea => idea.kind === "voice" && idea.transcription?.status === "done" && idea.transcription.kind !== "beat";
+const isHeard = (idea: Idea): idea is HeardIdea => idea.kind === "voice" && idea.transcription?.status === "done";
+const isBeatHeard = (idea: HeardIdea): idea is VoiceIdea & { transcription: BeatHeard } => idea.transcription.kind === "beat";
 
 /**
- * A studio Project built from a Sketch: each transcribed hum becomes a melody track with one clip of its notes,
- * clean or raw as the card shows them. Tempo and key come from the first transcribed hum.
+ * A studio Project built from a Sketch: each heard take becomes a track with one clip of its notes, clean or raw as the
+ * card shows them. A melody becomes a melody track, a beat a drum track. Tempo comes from the first heard take; key and
+ * scale from the first heard melody.
  */
 export function sketchToProject(sketch: Sketch, ideas: Idea[], now = Date.now()): Project {
   const projectId = crypto.randomUUID();
   const heard = ideas.filter(isHeard).sort((a, b) => a.order - b.order);
   const first = heard[0];
+  const firstMelody = heard.find((idea) => !isBeatHeard(idea))?.transcription as MelodyHeard | undefined;
   const tracks: Track[] = [];
   const clips: Clip[] = [];
 
   heard.forEach((idea, order) => {
-    const track = humTrack(projectId, idea, order);
+    const track = humTrack(projectId, idea, order, tracks);
     tracks.push(track);
     clips.push(humClip(track.id, idea));
   });
@@ -34,8 +37,8 @@ export function sketchToProject(sketch: Sketch, ideas: Idea[], now = Date.now())
     id: projectId,
     name: sketch.title,
     bpm: first ? takeOf(first).bpm : referenceBpm,
-    key: NOTE_NAMES[first?.transcription.key.tonic ?? 0],
-    scale: first?.transcription.key.mode ?? "major",
+    key: NOTE_NAMES[firstMelody?.key.tonic ?? 0],
+    scale: firstMelody?.key.mode ?? "major",
     timeSignature: [beatsPerBar, 4],
     tracks,
     clips,
@@ -61,8 +64,20 @@ function melodyTrack(projectId: string, name: string, order: number): Track {
   };
 }
 
-function humTrack(projectId: string, idea: HeardIdea, order: number): Track {
-  return { ...melodyTrack(projectId, `Hum ${order + 1}`, order), origin: { kind: "hum", ideaId: idea.id } };
+/** A heard take's track, numbered after the takes of its kind already in `tracks`: Hum 1, Hum 2… and Beat 1, Beat 2… */
+function humTrack(projectId: string, idea: HeardIdea, order: number, tracks: Track[]): Track {
+  const beat = isBeatHeard(idea);
+  const number = tracks.filter((t) => t.origin?.kind === "hum" && (t.type === "drum") === beat).length + 1;
+  const origin = { kind: "hum", ideaId: idea.id } as const;
+  if (!beat) return { ...melodyTrack(projectId, `Hum ${number}`, order), origin };
+  return {
+    ...melodyTrack(projectId, `Beat ${number}`, order),
+    type: "drum",
+    color: "drums",
+    volume: 0.75,
+    instrumentPreset: humPresets.drums,
+    origin,
+  };
 }
 
 /** One clip at bar 0 holding the hum's notes, long enough for the last one. */
@@ -73,8 +88,8 @@ function humClip(trackId: string, idea: HeardIdea): Clip {
   return {
     id: crypto.randomUUID(),
     trackId,
-    type: "midi",
-    name: "Hum",
+    type: isBeatHeard(idea) ? "drum" : "midi",
+    name: isBeatHeard(idea) ? "Beat" : "Hum",
     startBar: 0,
     lengthBars: Math.max(1, Math.ceil(end / beatsPerBar)),
     notes,
@@ -119,8 +134,7 @@ export function refreshHum(project: Project, idea: HeardIdea): Project {
       clips: [...project.clips.filter((c) => c.trackId !== existing.id), humClip(existing.id, idea)],
     };
   }
-  const humCount = project.tracks.filter((t) => t.origin?.kind === "hum").length;
   const order = Math.max(-1, ...project.tracks.map((t) => t.order)) + 1;
-  const track = { ...humTrack(project.id, idea, order), name: `Hum ${humCount + 1}` };
+  const track = humTrack(project.id, idea, order, project.tracks);
   return { ...project, tracks: [...project.tracks, track], clips: [...project.clips, humClip(track.id, idea)] };
 }

@@ -134,7 +134,7 @@ export function SketchScreen({ id }: { id: string }) {
         ) : ideas.length === 0 ? (
           <div className="rounded-2xl bg-surface p-6">
             <p className="text-base text-ink">Nothing in this sketch yet.</p>
-            <p className="text-sm text-ink-muted">Record a hum or add a note to start collecting the pieces of this song.</p>
+            <p className="text-sm text-ink-muted">Write lyrics, hum a melody or beatbox a beat to start collecting the pieces of this song.</p>
           </div>
         ) : editing ? (
           <div className="w-full max-w-xl">
