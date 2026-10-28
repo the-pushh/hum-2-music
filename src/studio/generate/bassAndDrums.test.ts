@@ -144,3 +144,66 @@ describe("drum feels", () => {
     }
   });
 });
+
+describe("bass styles", () => {
+  const styled = (bass: Plan["style"]["bass"], energy: Plan["style"]["energy"] = "medium") =>
+    generateBass({ ...plan, bars: 2, style: { ...defaultStyle, bass, energy } }, progression.slice(0, 2));
+
+  it("octaves: eighth notes alternating the root and the octave above", () => {
+    expect(styled("octaves").filter((n) => n.startBeat < 4).map((n) => [n.pitch, n.startBeat])).toEqual([
+      [C2, 0],
+      [C2 + 12, 0.5],
+      [C2, 1],
+      [C2 + 12, 1.5],
+      [C2, 2],
+      [C2 + 12, 2.5],
+      [C2, 3],
+      [C2 + 12, 3.5],
+    ]);
+  });
+
+  it("walking: root, third and fifth on beats 1 to 3, then a step into the next root", () => {
+    const A2 = 45;
+    expect(styled("walking").map((n) => [n.pitch, n.startBeat])).toEqual([
+      [C2, 0],
+      [E2, 1],
+      [G2, 2],
+      [E2, 3], // the step below F
+      [F2, 4],
+      [A2, 5],
+      [C2 + 12, 6],
+      [A2, 7], // no next chord: back down from the fifth
+    ]);
+  });
+
+  it("none: no bass at all", () => {
+    expect(styled("none")).toEqual([]);
+  });
+
+  it("plays softer at low energy and harder at high", () => {
+    const first = (energy: Plan["style"]["energy"]) => styled("roots", energy)[0].velocity;
+    expect(first("low")).toBeLessThan(first("medium"));
+    expect(first("high")).toBeGreaterThan(first("medium"));
+    expect(first("high")).toBeLessThanOrEqual(127);
+  });
+});
+
+describe("drum energy", () => {
+  const hats = (energy: Plan["style"]["energy"]) =>
+    generateDrums({ ...plan, bars: 1, style: { ...defaultStyle, energy } })
+      .filter((n) => n.pitch === 42)
+      .map((n) => n.startBeat);
+
+  it("plays quarter note hats at low energy", () => {
+    expect(hats("low")).toEqual([0, 1, 2, 3]);
+  });
+
+  it("plays sixteenth note hats at high energy", () => {
+    expect(hats("high")).toHaveLength(16);
+  });
+
+  it("keeps eighth note hats at medium energy", () => {
+    expect(hats("medium")).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]);
+  });
+});
+

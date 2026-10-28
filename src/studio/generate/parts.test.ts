@@ -160,6 +160,15 @@ describe("changing the style", () => {
     expect(none.tracks.map((t) => t.name)).toEqual(["Hum 1", "Chords", "Bass"]);
   });
 
+  it("leaves out the chords or bass track when either is none, keeping the bass under the chords it can't hear", () => {
+    const generated = withGeneratedParts(project);
+    const bassOf = (p: Project) => notesOn(p, p.tracks.find((t) => t.name === "Bass")!);
+    const noChords = withStyle(generated, { chords: "none" });
+    expect(noChords.tracks.map((t) => t.name)).toEqual(["Hum 1", "Bass", "Drums"]);
+    expect(bassOf(noChords)).toEqual(bassOf(generated));
+    expect(withStyle(withGeneratedParts(project), { bass: "none" }).tracks.map((t) => t.name)).toEqual(["Hum 1", "Chords", "Drums"]);
+  });
+
   it("only saves the style when nothing has been generated yet", () => {
     const styled = withStyle(project, { drums: "half-time" });
     expect(styled.tracks).toEqual(project.tracks);

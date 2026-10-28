@@ -6,7 +6,16 @@ import { defaultStyle, styleChoices, styleLabel, type Style } from "@/studio/gen
 import { useProjectStore } from "@/studio/store/project";
 
 /** The parts of a Style the picker offers, with their headings. */
-const rows: { key: keyof Style; label: string }[] = [{ key: "drums", label: "Drum feel" }];
+const rows: { key: keyof Style; label: string }[] = [
+  { key: "drums", label: "Drum feel" },
+  { key: "chords", label: "Chords" },
+  { key: "chordRhythm", label: "Chord rhythm" },
+  { key: "bass", label: "Bass" },
+  { key: "energy", label: "Energy" },
+];
+
+/** The chip names the drums, chords and bass; the picker shows everything. */
+const chipKeys: (keyof Style)[] = ["drums", "chords", "bass"];
 
 /**
  * The Style chip on the timeline and its picker. A pick rewrites the generated parts in that style straight away, as
@@ -30,7 +39,7 @@ export function StylePicker() {
         className="inline-flex h-8 items-center gap-2 rounded-lg bg-raised px-2 text-sm font-semibold text-ink transition duration-300 ease-soft hover:bg-line active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
       >
         <Faders size={16} aria-hidden />
-        {rows.map((r) => styleLabel[style[r.key]]).join(" · ")}
+        {chipKeys.map((key) => `${styleLabel[style[key]]}${style[key] === "none" ? ` ${key}` : ""}`).join(" · ")}
         <span className="sr-only">, change style</span>
       </button>
       <div id="studio-style" popover="auto" className="m-auto w-full max-w-sm rounded-2xl bg-raised p-4 text-ink backdrop:bg-canvas/60">

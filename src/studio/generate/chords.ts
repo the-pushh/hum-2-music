@@ -1,9 +1,11 @@
-import { NOTE_NAMES } from "@/studio/music";
+import { NOTE_NAMES, scalePitchClasses } from "@/studio/music";
+import type { PartNote } from "./bass";
+import { atEnergy } from "./energy";
 import type { MelodyNote, Plan } from "./plan";
 
 export type { MelodyNote } from "./plan";
 
-/** One bar's chord: a triad on a scale degree, voiced around middle C, root first. */
+/** One bar's chord: a triad (or a seventh chord, in the sevenths Style) on a scale degree, voiced around middle C, root first. */
 export type Chord = { bar: number; numeral: string; root: number; pitches: number[] };
 
 type Triad = { numeral: string; root: number; third: number; fifth: number; favoured: boolean };
@@ -78,7 +80,9 @@ export function generateChords(plan: Plan, melody: MelodyNote[]): Chord[] {
       }
     }
     previous = best;
-    chords.push({ bar, numeral: best.numeral, root: (tonic + best.root) % 12, pitches: voice(tonic, best) });
+    const pitches = voice(tonic, best);
+    if (plan.style.chords === "sevenths") pitches.push(pitches[0] + seventh(best.root, scalePitchClasses(plan.key, plan.scale), tonic));
+    chords.push({ bar, numeral: best.numeral, root: (tonic + best.root) % 12, pitches });
   }
   return chords;
 }
@@ -92,4 +96,33 @@ function voice(tonic: number, t: Triad): number[] {
   const rootPc = (tonic + t.root) % 12;
   const root = 52 + ((rootPc - 4 + 12) % 12);
   return [root, root + t.third, root + t.fifth];
+}
+
+/** Semitones from a chord's root up to its diatonic seventh: a major seventh if the key has it, otherwise a minor one. */
+function seventh(rootFromTonic: number, inKey: Set<number>, tonic: number): number {
+  return inKey.has((tonic + rootFromTonic + 11) % 12) ? 11 : 10;
+}
+
+/** Medium energy pulses on beats; high on eighths. */
+const pulseBeats = { low: 1, medium: 1, high: 0.5 } as const;
+const chordVelocity = 80;
+
+/**
+ * The chords as a part to play: each chord held for its bar, or pulsing (on beats, eighths at high energy, each a little
+ * short of the next). Softer or harder with the Style's energy. Nothing when the Style has no chords.
+ */
+export function chordPart(plan: Plan, chords: Chord[]): PartNote[] {
+  const { chords: colour, chordRhythm, energy } = plan.style;
+  if (colour === "none") return [];
+  const velocity = atEnergy(chordVelocity, energy);
+  const step = chordRhythm === "pulsing" ? pulseBeats[energy] : plan.beatsPerBar;
+  const duration = chordRhythm === "pulsing" ? step * 0.75 : step;
+  const notes: PartNote[] = [];
+  for (const chord of chords) {
+    const from = chord.bar * plan.beatsPerBar;
+    for (let at = 0; at < plan.beatsPerBar - 1e-9; at += step) {
+      for (const pitch of chord.pitches) notes.push({ pitch, startBeat: from + at, duration, velocity });
+    }
+  }
+  return notes;
 }
