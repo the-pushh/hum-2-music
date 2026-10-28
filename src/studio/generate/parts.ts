@@ -3,6 +3,7 @@ import { generateBass, type PartNote } from "./bass";
 import { generateChords } from "./chords";
 import { generateDrums } from "./drums";
 import { melodyOf, planFor, type Plan } from "./plan";
+import { defaultStyle, type Style } from "./style";
 
 type Part = Extract<TrackOrigin, { kind: "generated" }>["part"];
 
@@ -71,4 +72,13 @@ function clipFor(track: Track, plan: Plan, notes: Note[]): Clip {
 
 function note(n: PartNote): Note {
   return { id: crypto.randomUUID(), ...n };
+}
+
+/**
+ * The arrangement in a new Style. Generated parts are rewritten to follow it straight away; before anything has been
+ * generated, the Style is just kept for the next Generate parts.
+ */
+export function withStyle(project: Project, changes: Partial<Style>): Project {
+  const styled = { ...project, style: { ...(project.style ?? defaultStyle), ...changes } };
+  return project.tracks.some(isGenerated) ? withGeneratedParts(styled) : styled;
 }

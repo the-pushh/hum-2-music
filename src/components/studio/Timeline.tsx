@@ -7,6 +7,7 @@ import { usePlaybackStore } from "@/studio/store/playback";
 import { arrangementBars, playedBars } from "@/studio/transport";
 import type { Clip, Track } from "@/studio/types";
 import { Playhead } from "./Playhead";
+import { StylePicker } from "./StylePicker";
 import { roleBg } from "./roleColors";
 import { TrackSettings } from "./TrackSettings";
 
@@ -36,7 +37,10 @@ export function Timeline({ title, selectedTrackId, onSelect }: Props) {
 
   return (
     <section aria-label="Arrangement" className="flex flex-col gap-3 rounded-3xl bg-surface p-2">
-      <h1 className="px-2 pt-2 text-2xl font-semibold text-ink">{title}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-2 px-2 pt-2">
+        <h1 className="text-2xl font-semibold text-ink">{title}</h1>
+        <StylePicker />
+      </div>
       <div className="flex">
         {/* Track cards */}
         <div className="flex w-1/2 shrink-0 flex-col gap-1 pr-1 sm:w-1/4">

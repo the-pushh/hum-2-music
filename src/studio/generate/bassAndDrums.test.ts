@@ -4,8 +4,9 @@ import { generateBass } from "./bass";
 import type { Chord } from "./chords";
 import { generateDrums } from "./drums";
 import type { Plan } from "./plan";
+import { defaultStyle, type Style } from "./style";
 
-const plan: Plan = { bpm: 100, key: "C", scale: "major", beatsPerBar: 4, bars: 4 };
+const plan: Plan = { bpm: 100, key: "C", scale: "major", beatsPerBar: 4, bars: 4, style: defaultStyle };
 
 /** I IV V I in C, as the chords Generator voices them. */
 const progression: Chord[] = [
@@ -77,10 +78,69 @@ describe("pop/rock drums", () => {
     expect(hits(49, 4)).toEqual([0]);
   });
 
+  it("is the default drum feel", () => {
+    expect(defaultStyle.drums).toBe("pop-rock");
+  });
+
   it("covers exactly the bars of the plan with short hits", () => {
     const drums = generateDrums(plan);
     expect(Math.max(...drums.map((n) => n.startBeat))).toBeLessThan(plan.bars * plan.beatsPerBar);
     expect(drums.every((n) => n.duration === 0.25)).toBe(true);
     expect(drums).toEqual(generateDrums(plan));
+  });
+});
+
+describe("drum feels", () => {
+  /** The second bar of a feel (the first has the crash), as [drum, beat in the bar]. */
+  const bar = (drums: Style["drums"]) =>
+    generateDrums({ ...plan, bars: 2, style: { ...defaultStyle, drums } })
+      .filter((n) => n.startBeat >= 4)
+      .map((n) => [name[n.pitch], n.startBeat - 4]);
+  const name: Record<number, string> = { 36: "kick", 38: "snare", 42: "hat", 46: "open" };
+
+  it("four on the floor: a kick on every beat, snares on 2 and 4, open hats on the offbeats", () => {
+    expect(bar("four-on-the-floor")).toEqual([
+      ["kick", 0],
+      ["open", 0.5],
+      ["kick", 1],
+      ["snare", 1],
+      ["open", 1.5],
+      ["kick", 2],
+      ["open", 2.5],
+      ["kick", 3],
+      ["snare", 3],
+      ["open", 3.5],
+    ]);
+  });
+
+  it("half-time: a kick on 1, a snare only on 3, eighth hats", () => {
+    const b = bar("half-time");
+    expect(b.filter(([d]) => d === "kick")).toEqual([["kick", 0]]);
+    expect(b.filter(([d]) => d === "snare")).toEqual([["snare", 2]]);
+    expect(b.filter(([d]) => d === "hat").map(([, at]) => at)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]);
+  });
+
+  it("boom bap: kicks on 1, the and of 2 and the and of 3, snares on 2 and 4", () => {
+    const b = bar("boom-bap");
+    expect(b.filter(([d]) => d === "kick")).toEqual([
+      ["kick", 0],
+      ["kick", 1.5],
+      ["kick", 2.5],
+    ]);
+    expect(b.filter(([d]) => d === "snare")).toEqual([
+      ["snare", 1],
+      ["snare", 3],
+    ]);
+  });
+
+  it("none: no drums at all", () => {
+    expect(generateDrums({ ...plan, style: { ...defaultStyle, drums: "none" } })).toEqual([]);
+  });
+
+  it("crashes on the first downbeat in every feel that has drums", () => {
+    for (const drums of ["pop-rock", "four-on-the-floor", "half-time", "boom-bap"] as const) {
+      const first = generateDrums({ ...plan, style: { ...defaultStyle, drums } }).filter((n) => n.pitch === 49);
+      expect(first.map((n) => n.startBeat)).toEqual([0]);
+    }
   });
 });

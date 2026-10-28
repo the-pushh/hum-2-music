@@ -1,12 +1,14 @@
 import type { MusicalKey, MusicalScale, Project } from "@/studio/types";
+import { defaultStyle, type Style } from "./style";
 
-/** The musical frame Generators write into: tempo, key, and how many bars of what time. */
+/** The musical frame Generators write into: tempo, key, how many bars of what time, and the Style to play them in. */
 export type Plan = {
   bpm: number;
   key: MusicalKey;
   scale: MusicalScale;
   beatsPerBar: number;
   bars: number;
+  style: Style;
 };
 
 /** A melody note in beats from the start of the arrangement. */
@@ -42,5 +44,6 @@ export function planFor(project: Project): Plan {
     scale: project.scale,
     beatsPerBar,
     bars: end > 0 ? Math.ceil(end / beatsPerBar - 1e-9) : emptyBars,
+    style: project.style ?? defaultStyle,
   };
 }

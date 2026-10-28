@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import { scalePitchClasses } from "@/studio/music";
 import { generateChords, type MelodyNote } from "./chords";
 import type { Plan } from "./plan";
+import { defaultStyle } from "./style";
 
-const cMajor: Plan = { bpm: 90, key: "C", scale: "major", beatsPerBar: 4, bars: 4 };
+const cMajor: Plan = { bpm: 90, key: "C", scale: "major", beatsPerBar: 4, bars: 4, style: defaultStyle };
 const aMinor: Plan = { ...cMajor, key: "A", scale: "minor" };
 
 /** Quarter notes from beat 0, with optional longer notes as [pitch, beats]. */
