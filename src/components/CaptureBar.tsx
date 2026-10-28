@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GridFour, MusicNotes, PencilSimple, TextAa } from "@phosphor-icons/react";
 import { emptyLyrics } from "@/lyrics/doc";
+import { hearBeatIdea } from "@/beat/client";
 import { isBeat, transcribeIdea } from "@/melody/client";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
@@ -56,7 +57,7 @@ export function CaptureBar({ openSketchId }: Props) {
 
   async function save(input: IdeaInput, stillMounted = true) {
     const { sketch, idea } = await captureIdea(openSketchId, input);
-    if (idea.kind === "voice" && !isBeat(idea)) void transcribeIdea(idea);
+    if (idea.kind === "voice") void (isBeat(idea) ? hearBeatIdea(idea) : transcribeIdea(idea));
     if (stillMounted && !openSketchId) router.push(`/s/${sketch.id}`);
   }
 

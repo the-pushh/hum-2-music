@@ -149,6 +149,23 @@ describe("sketch store", () => {
       expect(new Uint8Array(await read.blob.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
     });
 
+    it("saves the hits heard in a beat and reads them back", async () => {
+      const store = freshStore();
+      const idea = await voiceIdea(store);
+      const heard = {
+        status: "done" as const,
+        kind: "beat" as const,
+        raw: [{ pitch: 36, start: 0.04, duration: 0.25, velocity: 0.9 }],
+        clean: [{ pitch: 36, start: 0, duration: 0.25, velocity: 0.9 }],
+        grid: 16 as const,
+        showRaw: false,
+      };
+      await store.setTranscription(idea.id, heard);
+
+      const read = await store.getIdea(idea.id);
+      expect(read?.kind === "voice" && read.transcription).toEqual(heard);
+    });
+
     it("refuses to transcribe an idea that isn't a voice idea", async () => {
       const store = freshStore();
       const { idea } = await store.capture(null, { kind: "note", text: "hm" });

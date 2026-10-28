@@ -10,6 +10,7 @@ import { tokenColor } from "@/ui/tokenColor";
 import type { VoiceIdea } from "@/sketches/types";
 import { isBeat } from "@/melody/client";
 import { beatBg, ideaBg, onColorButton } from "@/ui/ideaColors";
+import { BeatPanel } from "./BeatPanel";
 import { MelodyPanel } from "./MelodyPanel";
 
 const SEEK_STEP_SEC = 5;
@@ -115,7 +116,7 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
           )}
         </div>
       </div>
-      {!beat && <MelodyPanel idea={idea} />}
+      {beat ? <BeatPanel idea={idea} /> : <MelodyPanel idea={idea} />}
     </article>
   );
 }

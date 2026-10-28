@@ -6,7 +6,7 @@ import { instruments, type InstrumentId } from "./instruments";
 /** What hum needs from any smplr instrument. */
 export type Sound = {
   readonly ready: Promise<unknown>;
-  start(event: { note: number; time?: number; duration?: number; velocity?: number }): unknown;
+  start(event: { note: number | string; time?: number; duration?: number; velocity?: number }): unknown;
   stop(): void;
 };
 

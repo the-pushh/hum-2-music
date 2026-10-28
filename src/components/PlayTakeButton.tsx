@@ -3,18 +3,28 @@
 import { useEffect, useRef, useState } from "react";
 import { Play, Stop } from "@phosphor-icons/react";
 import { startedPlaying, stoppedPlaying } from "@/audio/exclusivePlayback";
-import { playMelody, type Playback } from "@/audio/melodyPlayer";
-import { instruments, type InstrumentId } from "@/instruments/instruments";
-import type { Note } from "@/melody/types";
+import type { Playback } from "@/audio/takePlayer";
 import { Button } from "./Button";
 
 type State = "idle" | "loading" | "playing" | "failed";
 
-/** Plays a melody on its instrument. Joins the one-thing-at-a-time rule with hums and other melodies. */
-export function PlayMelodyButton({ notes, bpm, instrument }: { notes: Note[]; bpm: number; instrument: InstrumentId }) {
+/**
+ * Plays what hum heard in a take on an instrument ("Play as strings", "Play on drums"). Joins the one-thing-at-a-time
+ * rule with hums and other takes.
+ */
+export function PlayTakeButton({
+  label,
+  instrument,
+  play,
+}: {
+  /** "Play as strings", "Play on drums". */
+  label: string;
+  /** The instrument's name in messages: "strings", "drums". Changing it stops what's playing. */
+  instrument: string;
+  play: (onEnded: () => void) => Promise<Playback>;
+}) {
   const [state, setState] = useState<State>("idle");
   const playbackRef = useRef<Playback | null>(null);
-  const label = instruments[instrument].label.toLowerCase();
 
   // Stop playing when the card goes away or the instrument changes.
   useEffect(() => () => playbackRef.current?.pause(), [instrument]);
@@ -23,7 +33,7 @@ export function PlayMelodyButton({ notes, bpm, instrument }: { notes: Note[]; bp
     if (state === "playing") return playbackRef.current?.pause();
     setState("loading");
     try {
-      const playback: Playback = await playMelody(notes, bpm, instrument, () => {
+      const playback: Playback = await play(() => {
         stoppedPlaying(playback);
         playbackRef.current = null;
         setState("idle");
@@ -40,11 +50,11 @@ export function PlayMelodyButton({ notes, bpm, instrument }: { notes: Note[]; bp
     <div className="flex items-center gap-2">
       <Button variant="secondary" className="text-sm" disabled={state === "loading"} aria-pressed={state === "playing"} onClick={toggle}>
         {state === "playing" ? <Stop size={16} weight="fill" aria-hidden /> : <Play size={16} weight="fill" aria-hidden />}
-        {state === "loading" ? `Loading ${label}` : state === "playing" ? "Stop" : `Play as ${label}`}
+        {state === "loading" ? `Loading ${instrument}` : state === "playing" ? "Stop" : label}
       </Button>
       {state === "failed" && (
         <span role="alert" className="text-xs font-semibold">
-          The {label} didn&apos;t load. Check your connection and try again.
+          The {instrument} didn&apos;t load. Check your connection and try again.
         </span>
       )}
     </div>

@@ -44,16 +44,29 @@ export type Take = {
   key?: Key;
 };
 
-export type Transcription =
-  | { status: "pending" }
-  | { status: "failed"; error: string }
-  | {
-      status: "done";
-      raw: Note[];
-      clean: Note[];
-      /** The key cleanup used: the chosen one, or the detected one. */
-      key: Key;
-      settings: CleanupSettings;
-      /** Show and play the raw notes instead of the cleaned ones. */
-      showRaw: boolean;
-    };
+/** The notes hum heard in a melody take. */
+export type MelodyHeard = {
+  status: "done";
+  kind?: "melody";
+  raw: Note[];
+  clean: Note[];
+  /** The key cleanup used: the chosen one, or the detected one. */
+  key: Key;
+  settings: CleanupSettings;
+  /** Show and play the raw notes instead of the cleaned ones. */
+  showRaw: boolean;
+};
+
+/** The hits hum heard in a beat take, as Notes on General MIDI drum pitches. Beats have no key. */
+export type BeatHeard = {
+  status: "done";
+  kind: "beat";
+  raw: Note[];
+  clean: Note[];
+  /** Clicked takes snap to it; free takes keep their timing. */
+  grid: Grid;
+  /** Show and play the raw hits instead of the snapped ones. */
+  showRaw: boolean;
+};
+
+export type Transcription = { status: "pending" } | { status: "failed"; error: string } | MelodyHeard | BeatHeard;

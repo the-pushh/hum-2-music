@@ -30,12 +30,12 @@ function failAll(error: string) {
   worker = undefined;
 }
 
-/** Decodes a take and mixes it down to mono at the model's sample rate. AudioContext isn't available in workers, so this runs here. */
-async function decodeForModel(blob: Blob): Promise<Float32Array> {
+/** Decodes a take and mixes it down to mono at a sample rate. AudioContext isn't available in workers, so this runs here. */
+export async function decodeMono(blob: Blob, rate: number): Promise<Float32Array> {
   const ctx = new AudioContext();
   try {
     const audio = await ctx.decodeAudioData(await blob.arrayBuffer());
-    const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(audio.duration * modelRate)), modelRate);
+    const offline = new OfflineAudioContext(1, Math.max(1, Math.ceil(audio.duration * rate)), rate);
     const source = offline.createBufferSource();
     source.buffer = audio;
     source.connect(offline.destination);
@@ -48,7 +48,7 @@ async function decodeForModel(blob: Blob): Promise<Float32Array> {
 
 /** Hears the notes in a take, in beats at the take's tempo. Runs the model in a worker so the app keeps responding. */
 export async function transcribe(blob: Blob, bpm: number): Promise<Note[]> {
-  const samples = await decodeForModel(blob);
+  const samples = await decodeMono(blob, modelRate);
   const id = nextId++;
   const response = await new Promise<TranscribeResponse>((resolve) => {
     waiting.set(id, { resolve });

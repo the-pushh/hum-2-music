@@ -1,5 +1,5 @@
 import { takeOf } from "@/melody/client";
-import { referenceBpm, type Note as HumNote } from "@/melody/types";
+import { referenceBpm, type MelodyHeard, type Note as HumNote } from "@/melody/types";
 import type { ArrangementInput, Idea, Sketch, VoiceIdea } from "@/sketches/types";
 import { humPresets } from "./audio/humVoices";
 import { NOTE_NAMES } from "./music";
@@ -8,9 +8,9 @@ import type { Clip, Note, Project, Track } from "./types";
 const beatsPerBar = 4;
 
 /** A voice Idea with notes to show: transcribed, and not still pending or failed. */
-export type HeardIdea = VoiceIdea & { transcription: Extract<VoiceIdea["transcription"], { status: "done" }> };
+export type HeardIdea = VoiceIdea & { transcription: MelodyHeard };
 
-const isHeard = (idea: Idea): idea is HeardIdea => idea.kind === "voice" && idea.transcription?.status === "done";
+const isHeard = (idea: Idea): idea is HeardIdea => idea.kind === "voice" && idea.transcription?.status === "done" && idea.transcription.kind !== "beat";
 
 /**
  * A studio Project built from a Sketch: each transcribed hum becomes a melody track with one clip of its notes,

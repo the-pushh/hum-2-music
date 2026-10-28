@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { Note as HumNote, Transcription } from "@/melody/types";
+import type { MelodyHeard, Note as HumNote, Transcription } from "@/melody/types";
 import type { Idea, Sketch, VoiceIdea } from "@/sketches/types";
 import { heardOf, refreshHum, sketchToProject, staleHums, type HeardIdea } from "./sketchToProject";
 
@@ -9,7 +9,7 @@ const sketch: Sketch = { id: "s1", title: "Twinkle", createdAt: 1, updatedAt: 2 
 const twinkle: HumNote[] = [60, 60, 67, 67, 69, 69].map((pitch, i) => ({ pitch, start: i, duration: 1, velocity: 0.7 }));
 twinkle.push({ pitch: 67, start: 6, duration: 2, velocity: 1 });
 
-type Done = Extract<Transcription, { status: "done" }>;
+type Done = MelodyHeard;
 
 const done = (clean: HumNote[], extra: Partial<Done> = {}): Done => ({
   status: "done",

@@ -9,7 +9,7 @@ The words hum's code and issues use, and what they mean here.
 - **Take**: how a voice Idea was recorded: its Take mode, its tempo, whether a click played, and the key chosen beforehand, if any.
 - **Take mode**: what a take is of: a **melody** (hummed or sung) or a **beat**. Takes from before M4 are melodies.
 - **Beat**: a take of a vocalized drum beat (beatbox). hum hears it as kick, snare and hi-hat hits, not pitches. Hums without a click are measured at the reference tempo, 90 BPM.
-- **Transcription**: the notes hum heard in a hum: pending, failed, or done with raw notes, cleaned-up notes, a key and the cleanup settings.
+- **Transcription**: what hum heard in a voice take: pending, failed, or done. A melody's has raw notes, cleaned-up notes, a key and the cleanup settings; a beat's has raw hits, snapped hits (kick 36, snare 38, hi-hat 42) and the grid.
 - **Instrument choice**: what a melody take plays as (piano, keys, strings, bass…), picked on its card after its notes are heard. No choice plays as piano.
 - **Note**: a pitch (MIDI number) with a start and a length in beats. Hums store velocity as 0–1; the studio as MIDI's 1–127.
 

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowClockwise, CaretDown, MusicNotes } from "@phosphor-icons/react";
+import { playMelody } from "@/audio/takePlayer";
 import { defaultInstrument, instruments } from "@/instruments/instruments";
 import { isTranscribing, takeOf, transcribeIdea } from "@/melody/client";
 import { keyName } from "@/melody/keyName";
@@ -10,7 +11,7 @@ import { Button } from "./Button";
 import { CleanupControls } from "./CleanupControls";
 import { NoteStrip } from "./NoteStrip";
 import { InstrumentPrompt } from "./InstrumentPrompt";
-import { PlayMelodyButton } from "./PlayMelodyButton";
+import { PlayTakeButton } from "./PlayTakeButton";
 
 /** The melody hum heard in a voice idea: transcription status, key and notes. */
 export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
@@ -55,6 +56,7 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
     );
   }
 
+  if (t.kind === "beat") return null;
   const notes = t.showRaw ? t.raw : t.clean;
   if (!t.raw.length) {
     return (
@@ -80,7 +82,11 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <PlayMelodyButton notes={notes} bpm={takeOf(idea).bpm} instrument={instrument} />
+          <PlayTakeButton
+            label={`Play as ${instruments[instrument].label.toLowerCase()}`}
+            instrument={instruments[instrument].label.toLowerCase()}
+            play={(onEnded) => playMelody(notes, takeOf(idea).bpm, instrument, onEnded)}
+          />
           {idea.instrument && !changingInstrument && (
             <button
               type="button"

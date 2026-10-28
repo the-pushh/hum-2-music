@@ -46,7 +46,7 @@ export async function transcribeIdea(idea: VoiceIdea): Promise<void> {
 /** Re-runs cleanup from the stored raw notes with new settings. No transcription needed, so it's instant. */
 export async function changeCleanup(idea: VoiceIdea, changes: Partial<CleanupSettings> & { showRaw?: boolean }): Promise<void> {
   const t = idea.transcription;
-  if (t?.status !== "done") return;
+  if (t?.status !== "done" || t.kind === "beat") return;
   const { showRaw = t.showRaw, ...settingChanges } = changes;
   const settings = { ...t.settings, ...settingChanges };
   const { notes, key } = cleanup(t.raw, settings, takeOf(idea));
