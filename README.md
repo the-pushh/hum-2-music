@@ -1,6 +1,6 @@
 # hum-2-music
 
-hum is a sketchpad for song ideas. Hum a melody, write lyrics, and collect pictures into a sketch. Everything stays in your browser (IndexedDB). There's no account and no server storage.
+hum is a sketchpad for song ideas. Hum a melody, beatbox a beat, and write lyrics into a sketch, then shape it into a small song in the studio. Everything stays in your browser (IndexedDB). There's no account and no server storage.
 
 ## Run it
 
@@ -10,6 +10,16 @@ npm run dev
 ```
 
 Open http://localhost:3000. Tests: `npm test`. Types: `npm run typecheck`.
+
+### Describe it (optional)
+
+The studio's **Describe it** box reads what you want the song to feel like ("slower, half-time, chill") with Claude. It needs an Anthropic API key on the server. Put it in `.env.local`, which git ignores, then restart `npm run dev`:
+
+```bash
+echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env.local
+```
+
+Only your words and the song's settings (tempo, key, style, track names) are sent, never recordings or lyrics. Without a key, everything else works and the box says it isn't set up.
 
 ## Test on your phone
 
