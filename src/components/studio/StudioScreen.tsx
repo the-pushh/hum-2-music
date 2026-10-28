@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft } from "@phosphor-icons/react";
+import { ArrowLeft, DownloadSimple } from "@phosphor-icons/react";
+import { downloadProjectAsMidi } from "@/studio/audio/export";
 import { useArrangement } from "@/studio/useArrangement";
 import { useProjectStore } from "@/studio/store/project";
 import { stopProject } from "@/studio/transport";
@@ -44,11 +45,19 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
           <ArrowLeft size={16} aria-hidden />
           Back to sketch
         </Link>
-        {sketch ? (
-          <h1 className="text-2xl font-semibold text-ink">{sketch.title}</h1>
-        ) : (
-          <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
-        )}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          {sketch ? (
+            <h1 className="text-2xl font-semibold text-ink">{sketch.title}</h1>
+          ) : (
+            <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
+          )}
+          {project && state.status === "ready" && (
+            <Button variant="secondary" onClick={() => downloadProjectAsMidi(project)} disabled={!project.clips.some((c) => c.notes?.length)}>
+              <DownloadSimple size={20} aria-hidden />
+              Export MIDI
+            </Button>
+          )}
+        </div>
       </header>
 
       {state.status === "error" && (

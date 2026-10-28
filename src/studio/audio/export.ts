@@ -129,8 +129,8 @@ export function downloadProjectAsMidi(project: Project): void {
     link.click();
     document.body.removeChild(link);
 
-    // Cleanup
-    URL.revokeObjectURL(url);
+    // Cleanup. hum: later, since iOS Safari can drop a download whose URL is revoked straight away.
+    setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
 // ============================================
