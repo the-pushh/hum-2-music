@@ -23,3 +23,4 @@ The soundfont kit is always named. smplr's default kit, MusyngKite, is CC BY-SA 
 - CC BY needs credit, so the README lists the sample sets.
 - Samples are fetched from GitHub Pages on first use and cached in CacheStorage (`hum-piano`, `hum-instruments`), so each instrument plays offline after its first load.
 - Adding an instrument means checking its sample licence first.
+- A hum's Track takes its instrument's role: bass → bass, electric piano → keys, everything else → melody. Piano stays melody, the same as a hum with no choice, so choosing Piano never recolors a Track. Generate parts harmonizes any hummed melody except a bass line.

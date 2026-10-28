@@ -22,7 +22,7 @@ type Heard = { words: string; instrument: InstrumentId | undefined };
  * "What should it play as?" on a melody card: asked once its notes are ready, and again whenever the songwriter taps
  * the instrument to change it. Answered with a chip, or in words, typed or spoken, which hum reads and checks back.
  */
-export function InstrumentPrompt({ idea, onDone }: { idea: VoiceIdea; onDone?: () => void }) {
+export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea; onDone?: () => void; onDismiss?: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [words, setWords] = useState("");
   const [heard, setHeard] = useState<Heard | null>(null);
@@ -78,10 +78,17 @@ export function InstrumentPrompt({ idea, onDone }: { idea: VoiceIdea; onDone?: (
   const labelId = `plays-as-${idea.id}`;
 
   return (
-    <div role="group" aria-labelledby={labelId} className="flex flex-col gap-2 rounded-lg bg-canvas/10 p-2">
-      <span id={labelId} className="px-1 text-sm font-semibold">
-        What should it play as?
-      </span>
+    <div role="group" aria-labelledby={labelId} className="flex flex-col gap-2 rounded-sm bg-canvas/10 p-2">
+      <div className="flex items-center justify-between gap-2">
+        <span id={labelId} className="px-1 text-sm font-semibold">
+          What should it play as?
+        </span>
+        {onDismiss && (
+          <button type="button" onClick={onDismiss} className={`${chip} hover:bg-canvas/10`}>
+            {idea.instrument ? "Cancel" : "Not now"}
+          </button>
+        )}
+      </div>
       <div className="flex flex-wrap gap-1">
         {instrumentIds.map((id) => (
           <button
@@ -118,7 +125,11 @@ export function InstrumentPrompt({ idea, onDone }: { idea: VoiceIdea; onDone?: (
         )}
       </form>
       <div aria-live="polite" className="flex flex-col gap-1">
-        {listening && <span className="px-1 text-xs">Listening… your browser&apos;s speech service hears this.</span>}
+        {speech && !heard && !error && (
+          <span className="px-1 text-xs opacity-70">
+            {listening ? "Listening…" : "Speaking it?"} Your browser&apos;s speech service hears what you say.
+          </span>
+        )}
         {heard && heard.instrument && (
           <div className="flex flex-wrap items-center gap-2 px-1">
             <span className="text-sm">

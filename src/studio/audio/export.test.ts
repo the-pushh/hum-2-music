@@ -110,4 +110,12 @@ describe("MIDI export", () => {
     expect(midi.tracks[0].instrument.number).toBe(48);
     expect(midi.tracks[1].instrument.number).toBe(33);
   });
+
+  it("gives generated chords and bass the nearest General MIDI program", () => {
+    const pad = { ...track("Melody", "midi", "keys"), instrumentPreset: "warm-pad" };
+    const bass = { ...track("Chords", "midi", "bass"), instrumentPreset: "synth-bass" };
+    const midi = roundTrip({ ...project, tracks: [pad, bass, ...project.tracks.slice(2)] });
+    expect(midi.tracks[0].instrument.number).toBe(89);
+    expect(midi.tracks[1].instrument.number).toBe(38);
+  });
 });

@@ -14,6 +14,18 @@ import type { Project, Clip, Track } from '@/studio/types';
 // Constants
 // ============================================
 
+/** hum's generated parts' synth presets, as their nearest General MIDI programs (0-based). */
+const GENERATED_PROGRAMS: Record<string, number> = {
+    'warm-pad': 89, // Pad 2 (warm)
+    'synth-bass': 38, // Synth Bass 1
+};
+
+/** The General MIDI program for a track's preset: a hum's chosen instrument, or a generated part's synth. */
+function programFor(preset: string | undefined): number | undefined {
+    const instrument = instrumentOfPreset(preset);
+    return instrument ? instruments[instrument].program : preset ? GENERATED_PROGRAMS[preset] : undefined;
+}
+
 // GM Drum channel (channel 10, but 0-indexed = 9)
 const DRUM_CHANNEL = 9;
 
@@ -83,9 +95,9 @@ export function exportProjectToMidi(project: Project): Midi {
 
         midiTrack.channel = channel;
 
-        // A hum plays as the General MIDI program of its chosen instrument, so other DAWs open it with that sound.
-        const instrument = isDrum ? undefined : instrumentOfPreset(track.instrumentPreset);
-        if (instrument) midiTrack.instrument.number = instruments[instrument].program;
+        // Each track gets the General MIDI program nearest its sound, so other DAWs open it sounding close.
+        const program = isDrum ? undefined : programFor(track.instrumentPreset);
+        if (program !== undefined) midiTrack.instrument.number = program;
 
         // Process each clip
         for (const clip of clips) {

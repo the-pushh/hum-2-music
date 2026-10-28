@@ -101,7 +101,7 @@ export function BeatPanel({ idea }: { idea: VoiceIdea }) {
       </div>
       {error && (
         <span role="alert" className="text-xs font-semibold">
-          Couldn&apos;t save that change.
+          Couldn&apos;t save that change. Try again.
         </span>
       )}
     </div>

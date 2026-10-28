@@ -223,7 +223,7 @@ export function Recorder({ mode, onSave, onBusyChange }: Props) {
     try {
       await onSave({ kind: "voice", blob, mime, ...analysis, take: takeRef.current }, mountedRef.current);
     } catch {
-      if (mountedRef.current) setError(mode === "melody" ? "The hum couldn't be saved" : "The beat couldn't be saved to this browser's storage. Try recording again.");
+      if (mountedRef.current) setError(`The ${mode === "melody" ? "hum" : "beat"} couldn't be saved to this browser's storage. Try recording again.`);
     } finally {
       savingRef.current = false;
       if (mountedRef.current) setStatus("idle");
