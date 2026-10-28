@@ -2,7 +2,7 @@
 
 import * as Tone from "tone";
 import { startedPlaying, stoppedPlaying } from "@/audio/exclusivePlayback";
-import { tone } from "@/audio/tone";
+import { startTone } from "@/audio/tone";
 import { audioEngine } from "./audio/engine";
 import { playoutManager } from "./audio/playout";
 import { createSynthForTrack, projectEndBar, trackVoiceKey } from "./audio/scheduler";
@@ -14,9 +14,14 @@ import type { Project, Track } from "./types";
 /** Bars the transport covers even when the arrangement is shorter, so an empty studio still has a grid. */
 export const minBars = 4;
 
-/** How many bars the arrangement takes, at least `minBars`. */
+/** How many bars to draw, at least `minBars`, so an empty studio still has a grid. */
 export function arrangementBars(project: Project): number {
   return Math.max(minBars, projectEndBar(project));
+}
+
+/** How many bars play and loop: just the music, so a short hum doesn't loop with silence after it. */
+function playedBars(project: Project): number {
+  return Math.max(1, projectEndBar(project));
 }
 
 let unfollow: (() => void) | null = null;
@@ -25,7 +30,7 @@ let stopAtEnd: number | null = null;
 /** Applies the arrangement's tempo, loop and notes to the transport. */
 async function schedule(project: Project) {
   const transport = Tone.getTransport();
-  const bars = arrangementBars(project);
+  const bars = playedBars(project);
   const loop = usePlaybackStore.getState().loopEnabled;
   audioEngine.setBpm(project.bpm);
   audioEngine.setTimeSignature(...project.timeSignature);
@@ -44,7 +49,7 @@ const player = { pause: () => stopProject() };
  */
 export async function playProject(project: Project): Promise<void> {
   startedPlaying(player);
-  await tone();
+  await startTone();
   await audioEngine.initialize();
   await playoutManager.initialize();
   Tone.getTransport().stop();
@@ -101,7 +106,7 @@ const previewVoices = new Map<string, ResolvedInstrument>();
 
 /** Sounds one note on a track's own instrument, through its mixer, as an edit happens. Call it from a tap. */
 export async function previewNote(track: Track, pitch: number, beats = 0.5): Promise<void> {
-  await tone();
+  await startTone();
   await playoutManager.initialize();
   const input = playoutManager.getTrackInput(track);
   if (!input) return;

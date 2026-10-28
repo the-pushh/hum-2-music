@@ -26,5 +26,7 @@ Signal has the better piano roll. But it comes as a Vite SPA built on Emotion, J
 
 - hum maintains the copied code. Upstream ComposeYogi fixes become optional cherry-picks.
 - The piano roll needs pointer and touch input and drag-to-move before it works on a phone.
-- Melody tracks play through hum's smplr piano. ComposeYogi's synths and kits are used for generated parts.
+- Melody tracks play through hum's smplr piano. Generated chords and bass use ComposeYogi's synth presets.
+- Drums play through smplr's LM-2 drum machine rather than ComposeYogi's sample kits, whose WAV files carry no licence of their own (decided while building M3).
+- In the end only the logic layer was copied (types, music theory, scheduler, playout, presets, export, stores). The track list, piano roll and drum grid were written fresh in hum's style, porting Signal's drag and quantize logic, because restyling ComposeYogi's components would have touched every line.
 - Generators produce plain `Note[]` in beats, Tone-free, tested like `src/melody/cleanup.ts`.

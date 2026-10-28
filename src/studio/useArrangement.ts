@@ -90,7 +90,10 @@ export function useArrangement(sketchId: string) {
     heardRef.current = next;
     setHeard(next);
     const project = useProjectStore.getState().project;
-    if (project) void sketchStore().saveArrangement(sketchId, { project, heard: next }).catch(() => {});
+    if (!project) return;
+    sketchStore()
+      .saveArrangement(sketchId, { project, heard: next })
+      .catch(() => setSaveError("Your choice couldn't be saved to this browser's storage. Keep the page open and try again."));
   }
 
   let state: State;

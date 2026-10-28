@@ -67,7 +67,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
       )}
 
       {state.status === "ready" && state.stale.length > 0 && (
-        <div role="status" className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface p-3">
+        <div role="status" className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface p-2">
           <p className="w-full text-sm text-ink sm:w-auto sm:flex-1">
             {state.stale.length === 1 ? "A hum has" : `${state.stale.length} hums have`} new notes since you last opened the studio.
           </p>
@@ -98,7 +98,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
             )}
             <TrackList selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
             {selected && (
-              <section aria-label={`Edit ${selected.name}`} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+              <section aria-label={`Edit ${selected.name}`} className="flex flex-col gap-3 rounded-2xl bg-surface p-2">
                 <h2 className="text-base font-semibold text-ink">{selected.name}</h2>
                 {selected.type === "drum" ? <DrumGrid track={selected} /> : <PianoRoll track={selected} />}
               </section>

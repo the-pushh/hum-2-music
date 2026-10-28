@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GridFour, Headphones, MagicWand, MusicNote, Plus, SpeakerSimpleX, Trash } from "@phosphor-icons/react";
 import { withGeneratedParts } from "@/studio/generate/parts";
+import { playoutManager } from "@/studio/audio/playout";
 import { isTrackAudible } from "@/studio/audio/scheduler";
 import { useProjectStore } from "@/studio/store/project";
 import { arrangementBars } from "@/studio/transport";
@@ -103,9 +104,15 @@ function TrackRow({ track, project, bars, selected, onSelect, onDelete }: RowPro
       <div className="flex items-center gap-1">
         <span className={`size-3 shrink-0 rounded-full ${roleBg[track.color]}`} aria-hidden />
         <input
-          value={track.name}
-          onChange={(e) => updateTrack(track.id, { name: e.target.value })}
-          onBlur={(e) => !e.target.value.trim() && updateTrack(track.id, { name: "Untitled" })}
+          // Uncontrolled, and saved once when you're done, so typing a name is one undo step, not one per letter.
+          key={track.name}
+          defaultValue={track.name}
+          onBlur={(e) => {
+            const name = e.target.value.trim() || "Untitled";
+            if (name !== track.name) updateTrack(track.id, { name });
+            else e.target.value = name;
+          }}
+          onKeyDown={(e) => e.key === "Enter" && e.currentTarget.blur()}
           aria-label="Track name"
           className="min-w-0 flex-1 rounded-md bg-transparent px-2 py-1 text-base font-semibold text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         />
@@ -123,16 +130,7 @@ function TrackRow({ track, project, bars, selected, onSelect, onDelete }: RowPro
         </button>
       </div>
       <div className="flex items-center gap-3">
-        <input
-          type="range"
-          min={0}
-          max={1}
-          step={0.01}
-          value={track.volume}
-          onChange={(e) => updateTrack(track.id, { volume: Number(e.target.value) })}
-          aria-label={`${track.name} volume`}
-          className="w-20 shrink-0 accent-ink"
-        />
+        <VolumeSlider track={track} audible={audible} onCommit={(volume) => updateTrack(track.id, { volume })} />
         <button
           type="button"
           onClick={onSelect}
@@ -170,5 +168,37 @@ function ClipNotes({ clip, bars, fill, beatsPerBar }: { clip: Clip; bars: number
         <rect key={n.id} x={n.startBeat} y={high - n.pitch} width={Math.max(0.1, n.duration - 0.05)} height={1} className={fill} />
       ))}
     </svg>
+  );
+}
+
+/** Heard live while dragging and saved once on release, so a drag is one undo step rather than dozens. */
+function VolumeSlider({ track, audible, onCommit }: { track: Track; audible: boolean; onCommit: (volume: number) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const dragging = useRef(false);
+  // Follow the track's volume when it changes from elsewhere (undo), unless it's being dragged.
+  useEffect(() => {
+    if (ref.current && !dragging.current) ref.current.value = String(track.volume);
+  }, [track.volume]);
+  const commit = () => {
+    dragging.current = false;
+    const volume = Number(ref.current?.value);
+    if (volume !== track.volume) onCommit(volume);
+  };
+  return (
+    <input
+      ref={ref}
+      type="range"
+      min={0}
+      max={1}
+      step={0.01}
+      defaultValue={track.volume}
+      onInput={(e) => playoutManager.updateTrackVolume(track.id, audible ? Number(e.currentTarget.value) : 0)}
+      onPointerDown={() => (dragging.current = true)}
+      onPointerUp={commit}
+      onKeyUp={commit}
+      onBlur={commit}
+      aria-label={`${track.name} volume`}
+      className="w-20 shrink-0 accent-ink"
+    />
   );
 }

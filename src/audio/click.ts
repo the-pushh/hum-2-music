@@ -1,7 +1,7 @@
 "use client";
 
 import * as Tone from "tone";
-import { tone } from "./tone";
+import { startTone } from "./tone";
 
 type ClickOptions = {
   bpm: number;
@@ -20,7 +20,7 @@ type ClickOptions = {
  * of its last bar. Returns a function that stops the click early.
  */
 export async function startClick({ bpm, bars, onCountIn, onTakeStart, onTakeEnd }: ClickOptions): Promise<() => void> {
-  await tone();
+  await startTone();
   const transport = Tone.getTransport();
   transport.stop();
   transport.cancel();

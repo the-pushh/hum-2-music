@@ -31,14 +31,11 @@ describe("chords for a melody", () => {
     expect(generateChords(aMinor, tune).map((c) => c.numeral)).toEqual(["i", "iv", "V", "i"]);
   });
 
-  it("starts and ends Twinkle Twinkle on I, with IV under F F E E", () => {
+  it("hears I I IV I in Twinkle Twinkle: one chord a bar can't change under A A G, and leans home at the end", () => {
     // C C G G | A A G- | F F E E | D D C-
     const twinkle = melody(C4, C4, G4, G4, A4, A4, [G4, 2], F4, F4, E4, E4, D4, D4, [C4, 2]);
     const chords = generateChords(cMajor, twinkle).map((c) => c.numeral);
-    expect(chords).toHaveLength(4);
-    expect(chords[0]).toBe("I");
-    expect(chords[2]).toBe("IV");
-    expect(chords[3]).toBe("I");
+    expect(chords).toEqual(["I", "I", "IV", "I"]);
   });
 
   it("changes chord at most once per bar, one chord for every bar of the plan", () => {
