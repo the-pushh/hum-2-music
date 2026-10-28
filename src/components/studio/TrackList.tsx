@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { Headphones, MusicNote, Plus, SpeakerSimpleX, Trash, GridFour } from "@phosphor-icons/react";
+import { GridFour, Headphones, MagicWand, MusicNote, Plus, SpeakerSimpleX, Trash } from "@phosphor-icons/react";
+import { withGeneratedParts } from "@/studio/generate/parts";
 import { isTrackAudible } from "@/studio/audio/scheduler";
 import { useProjectStore } from "@/studio/store/project";
 import { arrangementBars } from "@/studio/transport";
@@ -38,6 +39,17 @@ export function TrackList({ selectedTrackId, onSelect }: Props) {
         />
       ))}
       <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          className={generateButton}
+          onClick={() => {
+            const current = useProjectStore.getState().project;
+            if (current) useProjectStore.getState().loadProject(withGeneratedParts(current));
+          }}
+        >
+          <MagicWand size={16} aria-hidden />
+          {tracks.some((t) => t.origin?.kind === "generated") ? "Generate parts again" : "Generate parts"}
+        </button>
         <button type="button" className={addButton} onClick={() => onSelect(addTrack("midi", `Melody ${tracks.length + 1}`, "melody").id)}>
           <Plus size={16} aria-hidden />
           Melody track
@@ -63,8 +75,10 @@ export function TrackList({ selectedTrackId, onSelect }: Props) {
   );
 }
 
-const addButton =
-  "inline-flex items-center gap-2 rounded-lg bg-raised px-3 py-2 text-sm font-semibold text-ink transition duration-300 ease-soft hover:bg-line active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+const buttonBase =
+  "inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold transition duration-300 ease-soft active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+const addButton = `${buttonBase} bg-raised text-ink hover:bg-line`;
+const generateButton = `${buttonBase} bg-ink text-canvas hover:bg-ink-muted`;
 
 type RowProps = {
   track: Track;
