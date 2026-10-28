@@ -6,26 +6,83 @@ import { audioEngine } from "./audio/engine";
 import { playoutManager } from "./audio/playout";
 import { projectEndBar } from "./audio/scheduler";
 import { usePlaybackStore } from "./store/playback";
+import { useProjectStore } from "./store/project";
 import type { Project } from "./types";
 
-/** Plays the arrangement from the top, looping over its length. Call it from a tap. */
+/** Bars the transport covers even when the arrangement is shorter, so an empty studio still has a grid. */
+export const minBars = 4;
+
+/** How many bars the arrangement takes, at least `minBars`. */
+export function arrangementBars(project: Project): number {
+  return Math.max(minBars, projectEndBar(project));
+}
+
+let unfollow: (() => void) | null = null;
+let stopAtEnd: number | null = null;
+
+/** Applies the arrangement's tempo, loop and notes to the transport. */
+async function schedule(project: Project) {
+  const transport = Tone.getTransport();
+  const bars = arrangementBars(project);
+  const loop = usePlaybackStore.getState().loopEnabled;
+  audioEngine.setBpm(project.bpm);
+  audioEngine.setTimeSignature(...project.timeSignature);
+  audioEngine.setLoop(loop, 0, bars);
+  if (stopAtEnd !== null) transport.clear(stopAtEnd);
+  stopAtEnd = loop ? null : transport.scheduleOnce(() => queueMicrotask(stopProject), audioEngine.barToSeconds(bars));
+  await playoutManager.scheduleProject(project);
+}
+
+/** Plays the arrangement from the top. Edits while playing are heard straight away. Call it from a tap. */
 export async function playProject(project: Project): Promise<void> {
   await tone();
   await audioEngine.initialize();
   await playoutManager.initialize();
-  const transport = Tone.getTransport();
-  transport.stop();
-  audioEngine.setBpm(project.bpm);
-  audioEngine.setTimeSignature(...project.timeSignature);
-  audioEngine.setLoop(true, 0, Math.max(1, projectEndBar(project)));
-  await playoutManager.scheduleProject(project);
+  Tone.getTransport().stop();
+  await schedule(project);
   audioEngine.play(0);
   usePlaybackStore.getState().play();
+  follow();
 }
 
 export function stopProject(): void {
+  unfollow?.();
+  unfollow = null;
   if (!audioEngine.isReady()) return;
   audioEngine.stop();
   playoutManager.clearAllScheduled();
   usePlaybackStore.getState().stop();
+}
+
+/** While playing, mixer moves apply at once and note, tempo or loop changes are rescheduled. */
+function follow() {
+  unfollow?.();
+  let pending: ReturnType<typeof setTimeout> | undefined;
+  const reschedule = () => {
+    clearTimeout(pending);
+    pending = setTimeout(() => {
+      const project = useProjectStore.getState().project;
+      if (project && usePlaybackStore.getState().isPlaying) void schedule(project);
+    }, 60);
+  };
+  const offProject = useProjectStore.subscribe((state, previous) => {
+    const next = state.project;
+    const prev = previous.project;
+    if (!next || next === prev) return;
+    if (next.tracks !== prev?.tracks) playoutManager.applyMixState(next.tracks);
+    if (next.clips !== prev?.clips || next.bpm !== prev?.bpm || next.tracks.length !== prev?.tracks.length) reschedule();
+  });
+  const offLoop = usePlaybackStore.subscribe((state, previous) => {
+    if (state.loopEnabled !== previous.loopEnabled) reschedule();
+  });
+  unfollow = () => {
+    clearTimeout(pending);
+    offProject();
+    offLoop();
+  };
+}
+
+/** Where the playhead is, in bars from the start. */
+export function playheadBars(): number {
+  return audioEngine.isReady() ? audioEngine.getCurrentBar() : 0;
 }

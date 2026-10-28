@@ -145,7 +145,7 @@ export const usePlaybackStore = create<PlaybackStore>()(
         isPlaying: false,
         isRecording: false,
         isPaused: false,
-        isLooping: false,
+        isLooping: true,
         currentTime: 0,
         positionVersion: 0,
         metronomeEnabled: false,
@@ -153,7 +153,8 @@ export const usePlaybackStore = create<PlaybackStore>()(
         countInBars: DEFAULT_COUNT_IN,
         isCountingIn: false,
         recordingSession: null,
-        loopEnabled: false,
+        // hum: the studio loops by default, so a short idea keeps playing while you listen.
+        loopEnabled: true,
         loopStartBar: DEFAULT_LOOP_START,
         loopEndBar: DEFAULT_LOOP_END,
         currentBar: 0,
