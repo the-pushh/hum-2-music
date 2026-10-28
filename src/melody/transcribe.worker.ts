@@ -25,6 +25,40 @@ function load(): Promise<BasicPitch> {
   return basicPitch;
 }
 
+/** Some phone GPUs start WebGL fine but can't compile the model's shaders mid-run. Move to the CPU for good. */
+async function fallBackToCpu(): Promise<boolean> {
+  if (tf.getBackend() === "cpu") return false;
+  basicPitch = (async () => {
+    await tf.setBackend("cpu");
+    await tf.ready();
+    return new BasicPitch(tf.loadGraphModel("/models/basic-pitch/model.json"));
+  })();
+  return true;
+}
+
+async function hear(samples: Float32Array): Promise<HeardNote[]> {
+  const model = await load();
+  const frames: number[][] = [];
+  const onsets: number[][] = [];
+  const contours: number[][] = [];
+  await model.evaluateModel(
+    samples,
+    (f, o, c) => {
+      frames.push(...f);
+      onsets.push(...o);
+      contours.push(...c);
+    },
+    () => {},
+  );
+  const events = outputToNotesPoly(frames, onsets, 0.5, 0.3, 5, true, voiceRangeHz.high, voiceRangeHz.low);
+  return noteFramesToTime(addPitchBendsToNoteEvents(contours, events)).map((n) => ({
+    pitch: n.pitchMidi,
+    startSec: n.startTimeSeconds,
+    durationSec: n.durationSeconds,
+    amplitude: n.amplitude,
+  }));
+}
+
 // Errors outside a request (a library failing to load) would otherwise leave every request waiting forever.
 self.addEventListener("unhandledrejection", (e) => {
   self.postMessage({ id: -1, error: String(e.reason) } satisfies TranscribeResponse);
@@ -32,26 +66,13 @@ self.addEventListener("unhandledrejection", (e) => {
 
 self.onmessage = async ({ data }: MessageEvent<TranscribeRequest>) => {
   try {
-    const model = await load();
-    const frames: number[][] = [];
-    const onsets: number[][] = [];
-    const contours: number[][] = [];
-    await model.evaluateModel(
-      data.samples,
-      (f, o, c) => {
-        frames.push(...f);
-        onsets.push(...o);
-        contours.push(...c);
-      },
-      () => {},
-    );
-    const events = outputToNotesPoly(frames, onsets, 0.5, 0.3, 5, true, voiceRangeHz.high, voiceRangeHz.low);
-    const notes = noteFramesToTime(addPitchBendsToNoteEvents(contours, events)).map((n) => ({
-      pitch: n.pitchMidi,
-      startSec: n.startTimeSeconds,
-      durationSec: n.durationSeconds,
-      amplitude: n.amplitude,
-    }));
+    let notes: HeardNote[];
+    try {
+      notes = await hear(data.samples);
+    } catch (err) {
+      if (!(await fallBackToCpu())) throw err;
+      notes = await hear(data.samples);
+    }
     self.postMessage({ id: data.id, notes } satisfies TranscribeResponse);
   } catch (err) {
     self.postMessage({ id: data.id, error: err instanceof Error ? err.message : String(err) } satisfies TranscribeResponse);
