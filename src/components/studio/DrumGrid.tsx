@@ -51,7 +51,7 @@ export function DrumGrid({ track }: { track: Track }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-ink-muted">Tap a step to add a hit, again to accent it, and once more to clear it.</p>
-      <div className="overflow-x-auto rounded-lg bg-canvas select-none">
+      <div className="overflow-x-auto rounded-2xl bg-canvas select-none">
         <table className="border-separate border-spacing-0.5">
           <tbody>
             {rows.map((row) => (

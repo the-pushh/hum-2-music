@@ -2,18 +2,18 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { ArrowLeft, DownloadSimple } from "@phosphor-icons/react";
-import { downloadProjectAsMidi } from "@/studio/audio/export";
+import { ArrowLeft } from "@phosphor-icons/react";
 import { useArrangement } from "@/studio/useArrangement";
 import { useProjectStore } from "@/studio/store/project";
 import { stopProject } from "@/studio/transport";
 import { Button } from "../Button";
 import { DrumGrid } from "./DrumGrid";
+import { FloatingTransport } from "./FloatingTransport";
 import { PianoRoll } from "./PianoRoll";
-import { TrackList } from "./TrackList";
-import { TransportBar } from "./TransportBar";
+import { roleBg } from "./roleColors";
+import { Timeline } from "./Timeline";
 
-/** A Sketch's studio: its hums as tracks in a small arrangement you can play and edit. */
+/** A Sketch's studio: its hums as tracks on a timeline you can play, edit and fill out. */
 export function StudioScreen({ sketchId }: { sketchId: string }) {
   const { state, refresh, keep } = useArrangement(sketchId);
   const project = useProjectStore((s) => s.project);
@@ -36,29 +36,15 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-4 px-4 py-8">
-      <header className="flex flex-col gap-3">
-        <Link
-          href={`/s/${sketchId}`}
-          className="inline-flex w-fit items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          Back to sketch
-        </Link>
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          {sketch ? (
-            <h1 className="text-2xl font-semibold text-ink">{sketch.title}</h1>
-          ) : (
-            <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
-          )}
-          {project && state.status === "ready" && (
-            <Button variant="secondary" onClick={() => downloadProjectAsMidi(project)} disabled={!project.clips.some((c) => c.notes?.length)}>
-              <DownloadSimple size={20} aria-hidden />
-              Export MIDI
-            </Button>
-          )}
-        </div>
-      </header>
+    <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-8 pb-24">
+      <DotGrid />
+      <Link
+        href={`/s/${sketchId}`}
+        className="inline-flex w-fit items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+      >
+        <ArrowLeft size={16} aria-hidden />
+        Back to sketch
+      </Link>
 
       {state.status === "error" && (
         <p role="alert" className="text-sm text-accent">
@@ -68,7 +54,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
 
       {state.status === "ready" && state.stale.length > 0 && (
         <div role="status" className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface p-2">
-          <p className="w-full text-sm text-ink sm:w-auto sm:flex-1">
+          <p className="w-full px-1 text-sm text-ink sm:w-auto sm:flex-1">
             {state.stale.length === 1 ? "A hum has" : `${state.stale.length} hums have`} new notes since you last opened the studio.
           </p>
           <Button variant="secondary" onClick={() => refresh(state.stale)}>
@@ -80,32 +66,47 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
         </div>
       )}
 
-      {state.status === "loading" ? (
-        <div className="flex flex-col gap-2" aria-busy>
-          <div className="h-16 animate-pulse rounded-2xl bg-surface" />
-          {[0, 1].map((i) => (
-            <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface" />
+      {state.status === "loading" || !project ? (
+        <div className="flex flex-col gap-1 rounded-3xl bg-surface p-2" aria-busy>
+          <div className="h-16 w-1/3 animate-pulse rounded-2xl bg-raised" />
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-24 animate-pulse rounded-2xl bg-raised" />
           ))}
         </div>
       ) : (
-        project && (
-          <>
-            <TransportBar />
-            {!project.clips.length && (
-              <p className="text-sm text-ink-muted">
-                No hums in this sketch have notes yet. Transcribe a hum on the sketch page, or tap a track to write notes yourself.
-              </p>
-            )}
-            <TrackList selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
-            {selected && (
-              <section aria-label={`Edit ${selected.name}`} className="flex flex-col gap-3 rounded-2xl bg-surface p-2">
-                <h2 className="text-base font-semibold text-ink">{selected.name}</h2>
-                {selected.type === "drum" ? <DrumGrid track={selected} /> : <PianoRoll track={selected} />}
-              </section>
-            )}
-          </>
-        )
+        <>
+          <Timeline title={sketch?.title ?? "Studio"} selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
+          {!project.clips.length && (
+            <p className="px-2 text-sm text-ink-muted">
+              No hums in this sketch have notes yet. Transcribe a hum on the sketch page, or tap a track to write notes yourself.
+            </p>
+          )}
+          {selected && (
+            <section aria-label={`Edit ${selected.name}`} className="flex flex-col gap-3 rounded-3xl bg-surface p-2">
+              <h2 className="flex items-center gap-2 px-2 pt-2 text-base font-semibold text-ink">
+                <span className={`size-3 rounded-full ${roleBg[selected.color]}`} aria-hidden />
+                {selected.name}
+              </h2>
+              {selected.type === "drum" ? <DrumGrid track={selected} /> : <PianoRoll track={selected} />}
+            </section>
+          )}
+          <FloatingTransport />
+        </>
       )}
     </main>
+  );
+}
+
+/** The faint dot grid behind the studio, as in a DAW's canvas. A pattern of dots, not a gradient. */
+function DotGrid() {
+  return (
+    <svg aria-hidden className="pointer-events-none fixed inset-0 -z-10 size-full text-line">
+      <defs>
+        <pattern id="studio-dots" width="24" height="24" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="1" className="fill-current" />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#studio-dots)" />
+    </svg>
   );
 }

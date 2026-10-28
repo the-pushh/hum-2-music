@@ -187,7 +187,7 @@ export function PianoRoll({ track }: { track: Track }) {
         </button>
         <p className="w-full text-xs text-ink-muted sm:w-auto">Tap to add. Drag to move, drag the end to resize, double tap to delete.</p>
       </div>
-      <div ref={scrollRef} className="relative max-h-96 overflow-auto rounded-lg bg-canvas select-none">
+      <div ref={scrollRef} className="relative max-h-96 overflow-auto rounded-2xl bg-canvas select-none">
         <div className="flex w-max">
           <div className="sticky left-0 z-10 flex w-12 shrink-0 flex-col bg-surface" aria-hidden>
             {pitches.map((p) => (

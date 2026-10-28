@@ -19,13 +19,14 @@
   --color-accent: #ff5a36;
   --color-accent-ink: #131209;
 
-  /* Studio track roles: a track's color says what it plays. Always shown with its name, never alone. */
-  --color-melody: #ff8a65;
-  --color-keys: #f2c14e;
-  --color-bass: #5fc4b0;
-  --color-drums: #a99bf2;
-  --color-vocals: #ef8fbf;
-  --color-fx: #8db8ef;
+  /* Studio track roles: a track's color says what it plays. Bright, so dark ink reads on them, and always shown
+     with the track's name, never alone. */
+  --color-melody: #e2f562;
+  --color-keys: #ffcf6e;
+  --color-bass: #86a3ff;
+  --color-drums: #8fe6f5;
+  --color-vocals: #f7a6d2;
+  --color-fx: #c3abff;
 
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);

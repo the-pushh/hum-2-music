@@ -20,7 +20,7 @@ export function arrangementBars(project: Project): number {
 }
 
 /** How many bars play and loop: just the music, so a short hum doesn't loop with silence after it. */
-function playedBars(project: Project): number {
+export function playedBars(project: Project): number {
   return Math.max(1, projectEndBar(project));
 }
 
