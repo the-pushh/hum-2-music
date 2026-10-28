@@ -82,7 +82,7 @@ describe("generating parts", () => {
 
     const twice = withGeneratedParts(edited);
     const generated = twice.tracks.filter((t) => t.origin?.kind === "generated");
-    expect(generated.map((t) => t.name)).toEqual(["Chords"]);
+    expect(generated.map((t) => t.name)).toEqual(["Chords", "Bass", "Drums"]);
     expect(generated[0]).toMatchObject({ volume: 0.2, muted: true });
     expect(twice.tracks.map((t) => t.id)).toContain("mine");
     // The melody now only has bar 1, so the chords follow it.
@@ -92,6 +92,22 @@ describe("generating parts", () => {
       [67, 0, 4],
     ]);
     expect(twice.clips.filter((c) => !twice.tracks.some((t) => t.id === c.trackId))).toEqual([]);
+  });
+
+  it("adds bass and drums tracks that follow the chords, drums on the step grid's kit", () => {
+    const next = withGeneratedParts(project);
+    const part = (name: string) => next.tracks.find((t) => t.name === name)!;
+    expect(part("Bass")).toMatchObject({ type: "midi", color: "bass", origin: { kind: "generated", part: "bass" } });
+    expect(part("Drums")).toMatchObject({ type: "drum", color: "drums", instrumentPreset: "hum-drums", origin: { kind: "generated", part: "drums" } });
+    // I then IV: C2 up into F2.
+    expect(notesOn(next, part("Bass")).map(([pitch, start]) => [pitch, start])).toEqual([
+      [36, 0],
+      [36, 2],
+      [40, 3],
+      [41, 4],
+      [41, 6],
+    ]);
+    expect(next.clips.find((c) => c.trackId === part("Drums").id)).toMatchObject({ type: "drum", lengthBars: 2 });
   });
 
   it("gives the same parts every time", () => {

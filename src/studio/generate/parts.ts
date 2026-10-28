@@ -1,5 +1,7 @@
 import type { Clip, Note, Project, Track, TrackOrigin } from "@/studio/types";
+import { generateBass, type PartNote } from "./bass";
 import { generateChords } from "./chords";
+import { generateDrums } from "./drums";
 import { melodyOf, planFor, type Plan } from "./plan";
 
 type Part = Extract<TrackOrigin, { kind: "generated" }>["part"];
@@ -14,16 +16,16 @@ const parts: Record<Part, Pick<Track, "name" | "type" | "color" | "instrumentPre
 const isGenerated = (t: Track) => t.origin?.kind === "generated";
 
 /**
- * Writes chords for the arrangement's melody as ordinary tracks marked as generated. Running it again rewrites only
+ * Writes chords, bass and drums for the arrangement's melody as ordinary tracks marked as generated. Running it again rewrites only
  * the generated tracks' notes, keeping their mixer settings; the melody and anything added by hand stay as they are.
  */
 export function withGeneratedParts(project: Project): Project {
   const plan = planFor(project);
   const chords = generateChords(plan, melodyOf(project));
   const written: Record<Part, Note[]> = {
-    chords: chords.flatMap((c) => c.pitches.map((pitch) => note(pitch, c.bar * plan.beatsPerBar, plan.beatsPerBar, 80))),
-    bass: [],
-    drums: [],
+    chords: chords.flatMap((c) => c.pitches.map((pitch) => note({ pitch, startBeat: c.bar * plan.beatsPerBar, duration: plan.beatsPerBar, velocity: 80 }))),
+    bass: generateBass(plan, chords).map(note),
+    drums: generateDrums(plan).map(note),
   };
 
   const previous = (part: Part) => project.tracks.find((t) => t.origin?.kind === "generated" && t.origin.part === part);
@@ -64,6 +66,6 @@ function clipFor(track: Track, plan: Plan, notes: Note[]): Clip {
   };
 }
 
-function note(pitch: number, startBeat: number, duration: number, velocity: number): Note {
-  return { id: crypto.randomUUID(), pitch, startBeat, duration, velocity };
+function note(n: PartNote): Note {
+  return { id: crypto.randomUUID(), ...n };
 }
