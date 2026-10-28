@@ -45,6 +45,8 @@ describe("reading a Direction", () => {
     ["a tempo too slow", { bpm: 20 }],
     ["an unknown drum feel", { style: { drums: "trap" } }],
     ["an unknown energy", { style: { energy: "eleven" } }],
+    ["an unknown key", { key: "H" }],
+    ["an unknown scale", { scale: "dorian" }],
   ])("rejects %s", (_, extra) => {
     expect(directionSchema.safeParse({ understood: true, summary: "x", ...extra }).success).toBe(false);
   });
@@ -77,3 +79,48 @@ describe("applying a Direction", () => {
     expect(changed.tracks.map((t) => t.name)).not.toContain("Drums");
   });
 });
+
+describe("changing key and mode", () => {
+  const pitches = (p: Project, name: string) => notesOn(p, name).map(([pitch]) => pitch);
+  const beat: Track = { ...hum, id: "beat", name: "Beat 1", type: "drum", color: "drums", instrumentPreset: "hum-drums", order: 1, origin: { kind: "hum", ideaId: "beat" } };
+  const beatClip: Clip = { id: "bc", trackId: "beat", type: "drum", name: "Beat", startBar: 0, lengthBars: 1, notes: [quarter(36, 0), quarter(38, 1)] };
+  const withBeat: Project = { ...project, tracks: [hum, beat], clips: [humClip, beatClip] };
+
+  it("moves the song up a tone from C to D, hummed notes with it, drums where they are", () => {
+    const inD = applyDirection(withBeat, direction({ key: "D" }));
+    expect(inD.key).toBe("D");
+    expect(pitches(inD, "Hum 1")).toEqual([62, 66, 69, 66, 67, 71, 74, 71]);
+    expect(pitches(inD, "Beat 1")).toEqual([36, 38]);
+  });
+
+  it("takes the smallest move: F# to C goes down six semitones", () => {
+    const inFSharp = { ...project, key: "F#" as const, clips: [{ ...humClip, notes: [quarter(66, 0)] }] };
+    expect(pitches(applyDirection(inFSharp, direction({ key: "C" })), "Hum 1")).toEqual([60]);
+  });
+
+  it("moves a C major melody to C minor: E, A and B come down a semitone", () => {
+    const scaleOfC = { ...project, clips: [{ ...humClip, notes: [60, 62, 64, 65, 67, 69, 71, 72].map((p, i) => quarter(p, i)) }] };
+    const minor = applyDirection(scaleOfC, direction({ scale: "minor" }));
+    expect(minor.scale).toBe("minor");
+    expect(pitches(minor, "Hum 1")).toEqual([60, 62, 63, 65, 67, 68, 70, 72]);
+  });
+
+  it("moves a minor melody back to major", () => {
+    const aMinor = { ...project, key: "A" as const, scale: "minor" as const, clips: [{ ...humClip, notes: [69, 72, 76, 79].map((p, i) => quarter(p, i)) }] };
+    expect(pitches(applyDirection(aMinor, direction({ scale: "major" })), "Hum 1")).toEqual([69, 73, 76, 80]);
+  });
+
+  it("changes key and mode together: C major to A minor", () => {
+    const aMinor = applyDirection(project, direction({ key: "A", scale: "minor" }));
+    // Down a minor third to A, then the major third (C#) comes down to C.
+    expect(pitches(aMinor, "Hum 1").slice(0, 3)).toEqual([57, 60, 64]);
+  });
+
+  it("rewrites generated chords in the new key", () => {
+    const generated = withGeneratedParts(project);
+    const inD = applyDirection(generated, direction({ key: "D" }));
+    const firstChord = inD.clips.find((c) => c.trackId === inD.tracks.find((t) => t.name === "Chords")!.id)!.notes!.filter((n) => n.startBeat === 0).map((n) => n.pitch % 12);
+    expect(firstChord).toEqual([2, 6, 9]); // D F# A
+  });
+});
+

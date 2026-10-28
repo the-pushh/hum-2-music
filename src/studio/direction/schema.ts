@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { styleChoices } from "@/studio/generate/style";
+import { NOTE_NAMES } from "@/studio/music";
 
 /** The parts of a Style a description can change; each is optional, so a Direction names only what changes. */
 const styleChanges = z.object({
@@ -20,6 +21,9 @@ export const directionSchema = z.object({
   /** One short line hum shows back before anything changes, e.g. "72 BPM · half-time drums · low energy". */
   summary: z.string(),
   bpm: z.number().int().min(40).max(200).optional(),
+  /** The new tonic, e.g. "D". */
+  key: z.enum(NOTE_NAMES).optional(),
+  scale: z.enum(["major", "minor"]).optional(),
   style: styleChanges.optional(),
 });
 
