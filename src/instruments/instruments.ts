@@ -24,7 +24,8 @@ export type Instrument = {
 };
 
 export const instruments: Record<InstrumentId, Instrument> = {
-  piano: { label: "Piano", sound: { kind: "grand" }, program: 0, role: "keys", words: ["piano", "grand", "grand piano", "acoustic piano"] },
+  // A hummed melody with no choice plays as piano and keeps the melody role, so choosing Piano does too.
+  piano: { label: "Piano", sound: { kind: "grand" }, program: 0, role: "melody", words: ["piano", "grand", "grand piano", "acoustic piano"] },
   "electric-piano": {
     label: "Keys",
     sound: { kind: "electric", name: "WurlitzerEP200" },
@@ -75,3 +76,15 @@ export const instrumentIds = Object.keys(instruments) as InstrumentId[];
 
 /** A melody with no choice yet plays as piano. */
 export const defaultInstrument: InstrumentId = "piano";
+
+/** The studio preset that plays an instrument: "hum-strings", "hum-piano"… */
+export type InstrumentPreset = `hum-${InstrumentId}`;
+
+export function instrumentPreset(id: InstrumentId): InstrumentPreset {
+  return `hum-${id}`;
+}
+
+/** The instrument a studio preset plays, if it's one of hum's. */
+export function instrumentOfPreset(preset: string | undefined): InstrumentId | undefined {
+  return instrumentIds.find((id) => instrumentPreset(id) === preset);
+}

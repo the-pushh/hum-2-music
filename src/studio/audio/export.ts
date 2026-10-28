@@ -6,7 +6,9 @@
 // ============================================
 
 import { Midi } from '@tonejs/midi';
+import { instrumentOfPreset, instruments } from '@/instruments/instruments';
 import type { Project, Clip, Track } from '@/studio/types';
+
 
 // ============================================
 // Constants
@@ -80,6 +82,10 @@ export function exportProjectToMidi(project: Project): Midi {
         }
 
         midiTrack.channel = channel;
+
+        // A hum plays as the General MIDI program of its chosen instrument, so other DAWs open it with that sound.
+        const instrument = isDrum ? undefined : instrumentOfPreset(track.instrumentPreset);
+        if (instrument) midiTrack.instrument.number = instruments[instrument].program;
 
         // Process each clip
         for (const clip of clips) {

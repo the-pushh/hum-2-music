@@ -127,6 +127,12 @@ describe("generating parts", () => {
     expect(next.tracks.filter((t) => t.type === "drum").map((t) => t.name)).toEqual(["Beat 1"]);
   });
 
+  it("follows a hummed melody played as keys", () => {
+    const asKeys = { ...project, tracks: [{ ...melodyTrack, color: "keys" as const, instrumentPreset: "hum-electric-piano" }] };
+    const chordsOf = (p: Project) => notesOn(withGeneratedParts(p), withGeneratedParts(p).tracks.find((t) => t.name === "Chords")!);
+    expect(chordsOf(asKeys)).toEqual(chordsOf(project));
+  });
+
   it("writes only drums for an arrangement with no melody", () => {
     const empty = { ...project, clips: [] };
     expect(withGeneratedParts(empty).tracks.map((t) => t.name)).toEqual(["Hum 1", "Drums"]);

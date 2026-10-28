@@ -42,7 +42,7 @@ const beatDone = (clean: HumNote[], extra: Partial<BeatHeard> = {}): BeatHeard =
 const beatTake = (bpm = 90): VoiceIdea["take"] => ({ mode: "beat", bpm, click: true });
 
 let order = 0;
-function hum(transcription?: Transcription, take?: VoiceIdea["take"]): VoiceIdea {
+function hum(transcription?: Transcription, take?: VoiceIdea["take"], instrument?: VoiceIdea["instrument"]): VoiceIdea {
   order++;
   return {
     kind: "voice",
@@ -56,6 +56,7 @@ function hum(transcription?: Transcription, take?: VoiceIdea["take"]): VoiceIdea
     peaks: [],
     ...(take && { take }),
     ...(transcription && { transcription }),
+    ...(instrument && { instrument }),
   };
 }
 
@@ -159,6 +160,23 @@ describe("sketchToProject", () => {
     expect(project.scale).toBe("minor");
   });
 
+  it("plays a hum on the instrument chosen for it, in that instrument's role", () => {
+    const project = sketchToProject(sketch, [
+      hum(done(twinkle)),
+      hum(done(twinkle), undefined, "strings"),
+      hum(done(twinkle), undefined, "bass"),
+      hum(done(twinkle), undefined, "electric-piano"),
+      hum(done(twinkle), undefined, "piano"),
+    ]);
+    expect(project.tracks.map((t) => [t.instrumentPreset, t.color])).toEqual([
+      ["hum-piano", "melody"],
+      ["hum-strings", "melody"],
+      ["hum-bass", "bass"],
+      ["hum-electric-piano", "keys"],
+      ["hum-piano", "melody"],
+    ]);
+  });
+
   it("gives an empty hum a one bar clip", () => {
     const project = sketchToProject(sketch, [hum(done([]))]);
     expect(project.clips[0]).toMatchObject({ lengthBars: 1, notes: [] });
@@ -219,6 +237,25 @@ describe("refreshing a hum's track", () => {
     const regridded = { ...beat, transcription: beatDone(backbeat.slice(0, 2)) };
     expect(staleHums({ project, heard }, [beat])).toEqual([]);
     expect(staleHums({ project, heard }, [regridded]).map((i) => i.id)).toEqual([beat.id]);
+  });
+
+  it("finds a hum whose instrument changed, and plays its track on the new one", () => {
+    const first = hum(done(twinkle));
+    const project = sketchToProject(sketch, [first]);
+    const heard = heardOf([first]);
+    const asBass = { ...first, instrument: "bass" as const };
+
+    const [stale] = staleHums({ project, heard }, [asBass]);
+    expect(stale.id).toBe(first.id);
+    const refreshed = refreshHum(project, stale);
+    expect(refreshed.tracks[0]).toMatchObject({ name: "Hum 1", instrumentPreset: "hum-bass", color: "bass" });
+    expect(notesOf(refreshed, "Hum 1")).toEqual(notesOf(project, "Hum 1"));
+  });
+
+  it("doesn't count choosing piano for a hum that already played as piano as a change", () => {
+    const first = hum(done(twinkle));
+    const project = sketchToProject(sketch, [first]);
+    expect(staleHums({ project, heard: heardOf([first]) }, [{ ...first, instrument: "piano" }])).toEqual([]);
   });
 
   it("adds a new beat as a drum track", () => {

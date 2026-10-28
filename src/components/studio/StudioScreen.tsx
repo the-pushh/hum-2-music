@@ -54,10 +54,10 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
       {state.status === "ready" && state.stale.length > 0 && (
         <div role="status" className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface p-2">
           <p className="w-full px-1 text-sm text-ink sm:w-auto sm:flex-1">
-            {state.stale.length === 1 ? "A take has" : `${state.stale.length} takes have`} new notes since you last opened the studio.
+            {state.stale.length === 1 ? "A take has" : `${state.stale.length} takes have`} new notes or a new sound since you last opened the studio.
           </p>
           <Button variant="secondary" onClick={() => refresh(state.stale)}>
-            Use new notes
+            Use the new versions
           </Button>
           <Button variant="ghost" onClick={() => keep(state.stale)}>
             Keep mine

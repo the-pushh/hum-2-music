@@ -1,6 +1,7 @@
 import { takeOf } from "@/melody/client";
 import { referenceBpm, type BeatHeard, type MelodyHeard, type Note as HumNote } from "@/melody/types";
 import type { ArrangementInput, Idea, Sketch, VoiceIdea } from "@/sketches/types";
+import { defaultInstrument, instrumentPreset, instruments } from "@/instruments/instruments";
 import { humPresets } from "./audio/humVoices";
 import { NOTE_NAMES } from "./music";
 import type { Clip, Note, Project, Track } from "./types";
@@ -69,7 +70,7 @@ function humTrack(projectId: string, idea: HeardIdea, order: number, tracks: Tra
   const beat = isBeatHeard(idea);
   const number = tracks.filter((t) => t.origin?.kind === "hum" && (t.type === "drum") === beat).length + 1;
   const origin = { kind: "hum", ideaId: idea.id } as const;
-  if (!beat) return { ...melodyTrack(projectId, `Hum ${number}`, order), origin };
+  if (!beat) return { ...melodyTrack(projectId, `Hum ${number}`, order), ...soundOf(idea), origin };
   return {
     ...melodyTrack(projectId, `Beat ${number}`, order),
     type: "drum",
@@ -78,6 +79,12 @@ function humTrack(projectId: string, idea: HeardIdea, order: number, tracks: Tra
     instrumentPreset: humPresets.drums,
     origin,
   };
+}
+
+/** The preset and role a melody hum's track takes from the instrument chosen for it. */
+function soundOf(idea: HeardIdea): Pick<Track, "instrumentPreset" | "color"> {
+  const id = idea.instrument ?? defaultInstrument;
+  return { instrumentPreset: instrumentPreset(id), color: instruments[id].role };
 }
 
 /** One clip at bar 0 holding the hum's notes, long enough for the last one. */
@@ -107,9 +114,15 @@ function toStudioNote({ pitch, start, duration, velocity }: HumNote): Note {
   };
 }
 
-/** The notes a hum's track is made from, as a string to compare: clean or raw, whichever the card shows. */
-function fingerprint({ transcription: { raw, clean, showRaw } }: HeardIdea): string {
-  return (showRaw ? raw : clean).map((n) => `${n.pitch}:${n.start}:${n.duration}:${n.velocity}`).join(" ");
+/**
+ * What a take's track is made from, as a string to compare: its notes, clean or raw as the card shows them, and the
+ * instrument it plays as. Piano adds nothing, so arrangements saved before instruments could be chosen stay current.
+ */
+function fingerprint(idea: HeardIdea): string {
+  const { raw, clean, showRaw } = idea.transcription;
+  const notes = (showRaw ? raw : clean).map((n) => `${n.pitch}:${n.start}:${n.duration}:${n.velocity}`).join(" ");
+  const instrument = idea.instrument ?? defaultInstrument;
+  return instrument === defaultInstrument ? notes : `${notes}|${instrument}`;
 }
 
 /** What each transcribed hum sounded like, to save with an arrangement. */
@@ -125,12 +138,16 @@ export function staleHums(arrangement: ArrangementInput, ideas: Idea[]): HeardId
     .sort((a, b) => a.order - b.order);
 }
 
-/** Replaces a hum's track notes with its latest ones, or adds a track for it. Every other track is left as it is. */
+/**
+ * Replaces a take's track notes with its latest ones, and a melody's instrument with its latest choice, or adds a track
+ * for it. Every other track is left as it is.
+ */
 export function refreshHum(project: Project, idea: HeardIdea): Project {
   const existing = project.tracks.find((t) => t.origin?.kind === "hum" && t.origin.ideaId === idea.id);
   if (existing) {
     return {
       ...project,
+      tracks: isBeatHeard(idea) ? project.tracks : project.tracks.map((t) => (t.id === existing.id ? { ...t, ...soundOf(idea) } : t)),
       clips: [...project.clips.filter((c) => c.trackId !== existing.id), humClip(existing.id, idea)],
     };
   }
