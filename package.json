@@ -22,13 +22,13 @@
     "@tiptap/pm": "^3.32.0",
     "@tiptap/react": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
+    "@tonejs/midi": "^2.0.28",
     "@wavesurfer/react": "^1.0.12",
     "dexie": "^4.4.7",
     "dexie-react-hooks": "^4.4.0",
     "geist": "^1.8.2",
     "masonic": "^4.1.0",
     "next": "16.4.3",
-    "open-graph-scraper": "^6.12.0",
     "pitchy": "^4.1.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
@@ -36,7 +36,9 @@
     "smplr": "^1.1.0",
     "syllable": "^5.0.1",
     "tone": "^15.1.22",
-    "wavesurfer.js": "^8.0.3"
+    "wavesurfer.js": "^8.0.3",
+    "zundo": "^2.3.0",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@tailwindcss/turbopack": "^4",

@@ -21,7 +21,7 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
 
   if (!t) {
     return (
-      <Button variant="ghost" className="self-start text-sm" onClick={() => void transcribeIdea(idea)}>
+      <Button variant="secondary" className="self-start text-sm" onClick={() => void transcribeIdea(idea)}>
         <MusicNotes size={16} aria-hidden />
         Transcribe
       </Button>
@@ -31,8 +31,8 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
   if (t.status === "pending") {
     return (
       <div className="flex flex-col gap-2" aria-live="polite">
-        <div className="h-12 w-full animate-pulse rounded-sm bg-raised" aria-hidden />
-        <span className="text-xs text-ink-muted">Hearing the notes</span>
+        <div className="h-12 w-full animate-pulse rounded-sm bg-canvas/10" aria-hidden />
+        <span className="text-xs opacity-70">Hearing the notes</span>
       </div>
     );
   }
@@ -40,10 +40,10 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
   if (t.status === "failed") {
     return (
       <div className="flex items-center gap-2">
-        <span role="alert" className="text-xs text-accent">
+        <span role="alert" className="text-xs font-semibold">
           {t.error}
         </span>
-        <Button variant="ghost" className="text-sm" onClick={() => void transcribeIdea(idea)}>
+        <Button variant="secondary" className="text-sm" onClick={() => void transcribeIdea(idea)}>
           <ArrowClockwise size={16} aria-hidden />
           Try again
         </Button>
@@ -55,8 +55,8 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
   if (!t.raw.length) {
     return (
       <div className="flex items-center gap-2">
-        <span className="text-xs text-ink-muted">No notes heard. Try humming closer to the mic.</span>
-        <Button variant="ghost" className="text-sm" onClick={() => void transcribeIdea(idea)}>
+        <span className="text-xs opacity-70">No notes heard. Try humming closer to the mic.</span>
+        <Button variant="secondary" className="text-sm" onClick={() => void transcribeIdea(idea)}>
           <ArrowClockwise size={16} aria-hidden />
           Try again
         </Button>
@@ -67,8 +67,8 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2 text-xs">
-        <span className="font-semibold text-ink">{keyName(t.key)}</span>
-        <span className="text-ink-muted tabular-nums">{notes.length} notes</span>
+        <span className="font-semibold">{keyName(t.key)}</span>
+        <span className="opacity-70 tabular-nums">{notes.length} notes</span>
       </div>
       <NoteStrip notes={notes} label={`${notes.length} notes in ${keyName(t.key)}`} />
       <div className="flex flex-wrap items-center justify-between gap-2">

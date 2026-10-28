@@ -1,10 +1,11 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { Transcription } from "@/melody/types";
-import type { Idea, IdeaInput, Sketch, VoiceIdea } from "./types";
+import type { Arrangement, ArrangementInput, Idea, IdeaInput, Sketch, VoiceIdea } from "./types";
 
 type HumDb = Dexie & {
   sketches: EntityTable<Sketch, "id">;
   ideas: EntityTable<Idea, "id">;
+  arrangements: EntityTable<Arrangement, "sketchId">;
 };
 
 const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
@@ -17,6 +18,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     sketches: "id, updatedAt",
     ideas: "id, sketchId, [sketchId+order]",
   });
+  db.version(2).stores({ arrangements: "sketchId" });
 
   async function createSketch(title: string): Promise<Sketch> {
     const t = now();
@@ -32,10 +34,11 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     await db.sketches.update(id, { title: trimmed, updatedAt: now() });
   }
 
-  /** Deletes a sketch and every idea in it. */
+  /** Deletes a sketch with every idea in it and its arrangement. */
   async function deleteSketch(id: string): Promise<void> {
-    await db.transaction("rw", db.sketches, db.ideas, async () => {
+    await db.transaction("rw", db.sketches, db.ideas, db.arrangements, async () => {
       await db.ideas.where("sketchId").equals(id).delete();
+      await db.arrangements.delete(id);
       await db.sketches.delete(id);
     });
   }
@@ -111,6 +114,20 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     await db.ideas.delete(id);
   }
 
+  function getArrangement(sketchId: string): Promise<Arrangement | undefined> {
+    return db.arrangements.get(sketchId);
+  }
+
+  /** Saves the studio's arrangement for a sketch, replacing the last one, and moves the sketch to the top. */
+  async function saveArrangement(sketchId: string, input: ArrangementInput): Promise<void> {
+    await db.transaction("rw", db.sketches, db.arrangements, async () => {
+      if (!(await getSketch(sketchId))) throw new Error(`Sketch ${sketchId} not found`);
+      const t = now();
+      await db.arrangements.put({ ...input, sketchId, savedAt: t });
+      await db.sketches.update(sketchId, { updatedAt: t });
+    });
+  }
+
   /** Adds an idea to the open sketch, or starts a new one when nothing is open. All or nothing. */
   function capture(openSketchId: string | null, input: IdeaInput): Promise<{ sketch: Sketch; idea: Idea }> {
     return db.transaction("rw", db.sketches, db.ideas, async () => {
@@ -121,7 +138,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, moveIdea, removeIdea, capture };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, moveIdea, removeIdea, capture, getArrangement, saveArrangement };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

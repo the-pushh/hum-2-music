@@ -1,0 +1,655 @@
+// Copied from ComposeYogi (MIT, https://github.com/AppsYogi-com/ComposeYogi at 13fe2f61) and adapted for hum.
+// See src/studio/LICENSE-ComposeYogi.
+// ============================================
+// ComposeYogi — Shared Scheduling Core
+// The single source of truth for "how a clip becomes sound"
+// ============================================
+//
+// Both the live path (lib/audio/playout.ts) and the offline export path
+// (lib/audio/offline-renderer.ts) build their signal graphs and schedule their
+// notes through THIS module. Any change to timing, instrument resolution,
+// effect construction or mix gating belongs here — that is what guarantees
+// "the export sounds exactly like the playback".
+//
+// The two callers differ only in:
+//   - which Transport they schedule against (global vs. the Tone.Offline one)
+//   - whether the nodes are long-lived (live) or thrown away after render
+// Everything else is shared.
+
+import * as Tone from 'tone';
+
+import { createLogger } from '@/studio/logger';
+import {
+    effectiveGroove,
+    energyVelocityScale,
+    humanizeOffset,
+    humanizeSeed,
+    isNeutral,
+    readClipMacros,
+    resolveVelocity,
+    spaceSpec,
+    swingDelayBeats,
+    toneFilterSpec,
+    toneTilt,
+    transposedPitch,
+} from './clip-macros';
+import { humVoiceFor, isHumPreset, HumVoice } from './humVoices';
+import { createSynthFromPreset, waitForSynthReady, type ResolvedInstrument, type SynthType, type ToneSynthType } from './synth-presets';
+
+import type { Clip, Project, Track, TrackEffect } from '@/studio/types';
+
+const logger = createLogger('Scheduler');
+
+// ============================================
+// Types
+// ============================================
+
+/**
+ * Both `Tone.getTransport()` and the transport handed to a `Tone.Offline`
+ * callback are `TransportClass` instances, so the scheduling code is identical.
+ */
+export type SchedulerTransport = ReturnType<typeof Tone.getTransport>;
+
+/**
+ * The tempo grid. Split out from the full context because an audio clip needs
+ * only this — it has no notes to swing and books no transport events — and a
+ * function that takes a transport it never touches invites the next caller to
+ * pass the wrong one.
+ */
+export interface TempoContext {
+    bpm: number;
+    beatsPerBar: number;
+}
+
+/** Everything the note schedulers need to know about the song. */
+export interface SchedulerContext extends TempoContext {
+    transport: SchedulerTransport;
+    /** Project-wide swing, 0-100. Required, not optional: a default here would
+     *  let a caller forget it and silently render straight. */
+    swing: number;
+}
+
+export interface ScheduledMidiClip {
+    synth: SynthType;
+    eventIds: number[];
+    /** Per-clip macro nodes, for the caller to dispose alongside the synth. */
+    macroNodes: Tone.ToneAudioNode[];
+}
+
+// ============================================
+// Master Chain Constants
+// ============================================
+
+/**
+ * Headroom applied before the master limiter. Live and offline use the same
+ * values so a mix that peaks in the app peaks identically in the export.
+ */
+export const MASTER_GAIN = 0.8;
+export const MASTER_LIMITER_THRESHOLD_DB = -1;
+
+/** Ramp time for live mixer moves — long enough to avoid zipper noise. */
+export const PARAM_RAMP_SECONDS = 0.05;
+
+// ============================================
+// Timing
+// ============================================
+
+export function barsToSeconds(bars: number, bpm: number, beatsPerBar: number = 4): number {
+    const secondsPerBeat = 60 / bpm;
+    return bars * beatsPerBar * secondsPerBeat;
+}
+
+export function beatsToSeconds(beats: number, bpm: number): number {
+    return (beats / bpm) * 60;
+}
+
+export function secondsToBars(seconds: number, bpm: number, beatsPerBar: number = 4): number {
+    const secondsPerBeat = 60 / bpm;
+    return seconds / (secondsPerBeat * beatsPerBar);
+}
+
+/** Last bar occupied by any clip — the musical length of the project. */
+export function projectEndBar(project: Project): number {
+    return project.clips.reduce(
+        (max, clip) => Math.max(max, clip.startBar + clip.lengthBars),
+        0
+    );
+}
+
+// ============================================
+// Mix Gating (solo / mute) — ONE definition
+// ============================================
+
+/**
+ * Solo is exclusive: if any track is soloed, only soloed tracks are heard.
+ * An explicitly muted track stays silent even when it is soloed, matching
+ * every hardware and software mixer.
+ */
+export function isTrackAudible(track: Track, allTracks: Track[]): boolean {
+    if (track.muted) return false;
+    const anySoloed = allTracks.some((t) => t.solo);
+    return anySoloed ? Boolean(track.solo) : true;
+}
+
+/** Final linear gain for a track, accounting for its fader plus solo/mute. */
+export function effectiveTrackGain(track: Track, allTracks: Track[]): number {
+    return isTrackAudible(track, allTracks) ? track.volume : 0;
+}
+
+/**
+ * The gain a track's chain should be *created* at.
+ *
+ * A chain is built lazily, by whoever asks for a track's input first — and on a
+ * page where nothing has played yet, that is the live keyboard or an editor's
+ * preview rather than the transport. Those chains used to be born at
+ * `track.volume`, which meant **a muted track's preview was audible** until the
+ * transport ran and the mixer caught up. Reported as "I muted the track and I
+ * can still hear it", and it was the second half of that bug: the first was the
+ * editors playing straight to the speakers.
+ *
+ * `knownTracks` is the list the mixer last resolved from, which on a cold page
+ * is **empty** — and that needs no special case, though the first draft had one.
+ * `isTrackAudible` reads solo as "is anyone soloed", so an empty list means
+ * nobody is, which is both the right answer and the same answer that judging the
+ * track against itself gives. Mutation testing showed the `length ? … : [track]`
+ * fallback changed nothing in any case; it is gone rather than left looking like
+ * it does something.
+ */
+export function initialTrackGain(track: Track, knownTracks: readonly Track[]): number {
+    return effectiveTrackGain(track, [...knownTracks]);
+}
+
+// ============================================
+// Render Plan
+// ============================================
+//
+// What gets scheduled, where, and how loud — computed once and consumed by both
+// the live and offline paths. Sharing the *primitives* stops the two from
+// drifting on how a note is played; sharing the plan stops them drifting on
+// which notes get played at all.
+
+export type RenderClipKind = 'audio' | 'midi';
+
+export interface PlannedClip {
+    clipId: string;
+    trackId: string;
+    kind: RenderClipKind;
+    startSeconds: number;
+    /** False when the clip is on a muted or non-soloed track. */
+    audible: boolean;
+}
+
+export interface PlannedTrack {
+    trackId: string;
+    /** Fader value after solo/mute resolution — 0 means silent. */
+    gain: number;
+    pan: number;
+    audible: boolean;
+    /** Effects that will actually be built (bypassed ones are excluded). */
+    activeEffects: TrackEffect[];
+}
+
+export interface RenderPlan {
+    bpm: number;
+    beatsPerBar: number;
+    /** Project-wide swing, 0-100. Carried on the plan so the live and offline
+     *  callers both read it from here rather than each reaching for the project. */
+    swing: number;
+    /** Musical length in seconds, excluding any export tail. */
+    durationSeconds: number;
+    tracks: PlannedTrack[];
+    clips: PlannedClip[];
+}
+
+/** Clips with no sound to make (empty notes, no take) are left out of the plan. */
+function plannedClipKind(clip: Clip): RenderClipKind | null {
+    // hum's studio has no audio clips: recording stays on the Sketch.
+    if (clip.type === 'midi' || clip.type === 'drum') {
+        return clip.notes?.length ? 'midi' : null;
+    }
+    return null;
+}
+
+export function buildRenderPlan(project: Project): RenderPlan {
+    const beatsPerBar = project.timeSignature[0];
+    const bpm = project.bpm;
+
+    const tracks: PlannedTrack[] = project.tracks.map((track) => ({
+        trackId: track.id,
+        gain: effectiveTrackGain(track, project.tracks),
+        pan: track.pan,
+        audible: isTrackAudible(track, project.tracks),
+        activeEffects: (track.effects || []).filter((effect) => effect.active),
+    }));
+
+    const trackById = new Map(tracks.map((t) => [t.trackId, t]));
+
+    const clips: PlannedClip[] = [];
+    for (const clip of project.clips) {
+        const kind = plannedClipKind(clip);
+        if (!kind) continue;
+
+        const plannedTrack = trackById.get(clip.trackId);
+        if (!plannedTrack) continue; // orphaned clip, no track to play it on
+
+        clips.push({
+            clipId: clip.id,
+            trackId: clip.trackId,
+            kind,
+            startSeconds: barsToSeconds(clip.startBar, bpm, beatsPerBar),
+            audible: plannedTrack.audible,
+        });
+    }
+
+    return {
+        bpm,
+        beatsPerBar,
+        swing: project.swing ?? 0,
+        durationSeconds: barsToSeconds(projectEndBar(project), bpm, beatsPerBar),
+        tracks,
+        clips,
+    };
+}
+
+// ============================================
+// Instrument Resolution
+// ============================================
+
+/** Wrap a built-in synth as a resolved instrument: nothing after the voice. */
+function bare(synth: ToneSynthType): ResolvedInstrument {
+    return { synth, output: synth, nodes: [] };
+}
+
+/**
+ * The identity of the voice a track sounds through.
+ *
+ * Anything that keeps a built voice alive between notes — live play, the
+ * editors' preview — has to know when to throw it away and build another. The
+ * track id is not enough and neither is the preset id: **`instrumentPreset`
+ * holds an id, and editing a custom instrument changes the sound without
+ * changing the id**, so a key without the revision leaves every held voice on
+ * the sound from before the edit. That is #22, and this is the third place it
+ * would otherwise have appeared — which is why the key is here, beside
+ * `createSynthForTrack`, rather than copied into each caller.
+ */
+export function trackVoiceKey(track: Track): string {
+    const preset = track.instrumentPreset ?? `color:${track.color}`;
+    return `${track.id}|${preset}`;
+}
+
+/**
+ * Fallback instrument when a track carries no explicit preset — chosen from the
+ * track's musical role (its color) so a new track still makes a sensible sound.
+ */
+export function createSynthForTrack(track: Track): ResolvedInstrument {
+    // hum: sampled piano and drums, one per track and kept between reschedules.
+    if (isHumPreset(track.instrumentPreset)) {
+        const voice = humVoiceFor(track, track.instrumentPreset);
+        return { synth: voice, output: voice.output, nodes: [] };
+    }
+    if (track.instrumentPreset) {
+        return bare(createSynthFromPreset(track.instrumentPreset));
+    }
+
+    switch (track.color) {
+        case 'bass':
+            return bare(createSynthFromPreset('synth-bass'));
+        case 'keys':
+            return bare(createSynthFromPreset('electric-piano'));
+        case 'melody':
+            return bare(createSynthFromPreset('saw-lead'));
+        case 'drums':
+            return bare(createSynthFromPreset('drum-synth'));
+        case 'fx':
+            return bare(createSynthFromPreset('warm-pad'));
+        case 'vocals':
+        default:
+            return bare(createSynthFromPreset('basic-synth'));
+    }
+}
+
+/**
+ * Resolution order: clip preset → track preset → track-color fallback.
+ *
+ * The single place user-made instruments enter the audio path. Both the live
+ * playout and the offline render reach a clip's voice through here, so custom
+ * instruments export exactly as they play — the property the scheduler exists
+ * to hold, and the one a second resolution site would quietly break.
+ */
+export function createSynthForClip(clip: Clip, track: Track): ResolvedInstrument {
+    if (clip.instrumentPreset) {
+        return bare(createSynthFromPreset(clip.instrumentPreset));
+    }
+    return createSynthForTrack(track);
+}
+
+// ============================================
+// Effects
+// ============================================
+
+/**
+ * Build one effect node. Async because a Reverb must generate its impulse
+ * response before it passes signal — awaiting it here is what stops the first
+ * bars of a reverbed track from rendering dry.
+ */
+export async function createEffectNode(effect: TrackEffect): Promise<Tone.ToneAudioNode | null> {
+    try {
+        switch (effect.type) {
+            case 'reverb': {
+                const reverb = new Tone.Reverb({
+                    decay: effect.params.decay ?? 1.5,
+                    preDelay: effect.params.preDelay ?? 0.01,
+                    wet: effect.params.wet ?? 0.5,
+                });
+                await reverb.generate();
+                return reverb;
+            }
+            case 'delay':
+                return new Tone.FeedbackDelay({
+                    delayTime: effect.params.delayTime ?? 0.25,
+                    feedback: effect.params.feedback ?? 0.5,
+                    wet: effect.params.wet ?? 0.5,
+                });
+            case 'distortion':
+                return new Tone.Distortion({
+                    distortion: effect.params.distortion ?? 0.4,
+                    wet: effect.params.wet ?? 0.5,
+                });
+            case 'filter':
+                return new Tone.Filter({
+                    frequency: effect.params.frequency ?? 1000,
+                    type: effect.params.filterType ?? effect.params.type ?? 'lowpass',
+                    Q: effect.params.Q ?? 1,
+                });
+            case 'compression':
+                return new Tone.Compressor({
+                    threshold: effect.params.threshold ?? -30,
+                    ratio: effect.params.ratio ?? 12,
+                });
+            default:
+                return null;
+        }
+    } catch (error) {
+        logger.error('Failed to create effect node', { type: effect.type, error });
+        return null;
+    }
+}
+
+/**
+ * Wire `entry → [active effects…] → output` and return the created nodes so the
+ * caller can dispose them. Inactive effects are skipped in both paths — an FX
+ * bypass has to mean the same thing live and on export.
+ */
+export async function buildEffectChain(
+    effects: TrackEffect[] | undefined,
+    entry: Tone.ToneAudioNode,
+    output: Tone.ToneAudioNode
+): Promise<Tone.ToneAudioNode[]> {
+    const active = (effects || []).filter((effect) => effect.active);
+
+    if (active.length === 0) {
+        entry.connect(output);
+        return [];
+    }
+
+    const nodes: Tone.ToneAudioNode[] = [];
+    let current: Tone.ToneAudioNode = entry;
+
+    for (const effect of active) {
+        const node = await createEffectNode(effect);
+        if (node) {
+            current.connect(node);
+            current = node;
+            nodes.push(node);
+        }
+    }
+
+    current.connect(output);
+    return nodes;
+}
+
+// ============================================
+// Clip Macros — per-clip DSP
+// ============================================
+//
+// The track chain is shared by everything on the track, so a macro that
+// belongs to one clip cannot live there: two clips on the same track have to
+// be able to sound different. These nodes sit between the clip's own source
+// and the track entry.
+//
+// A clip whose macros are all neutral gets no nodes at all and connects
+// straight to the track, exactly as it did before macros existed. That is not
+// only an optimisation — every clip saved before this feature shipped holds
+// the neutral values, and they must keep sounding the way their author left
+// them.
+
+/** Where a clip's source connects, plus whatever was created to get it there. */
+export interface ClipMacroChain {
+    input: Tone.ToneAudioNode;
+    nodes: Tone.ToneAudioNode[];
+}
+
+/**
+ * Wire `[tone filter] → [reverb] → destination` for one clip's macros.
+ *
+ * Async for the same reason the track effect chain is: a Reverb has to
+ * generate its impulse response before it passes signal, and not waiting is
+ * what makes the first bars render dry.
+ */
+export async function buildClipMacroChain(
+    clip: Clip,
+    destination: Tone.ToneAudioNode
+): Promise<ClipMacroChain> {
+    const macros = readClipMacros(clip);
+    if (isNeutral(macros)) return { input: destination, nodes: [] };
+
+    const nodes: Tone.ToneAudioNode[] = [];
+
+    const filter = toneFilterSpec(toneTilt(macros.brightness, macros.energy));
+    if (filter) {
+        nodes.push(new Tone.Filter({
+            type: filter.type,
+            frequency: filter.frequency,
+            gain: filter.gain,
+        }));
+    }
+
+    const space = spaceSpec(macros.space);
+    if (space) {
+        const reverb = new Tone.Reverb({
+            decay: space.decay,
+            preDelay: space.preDelay,
+            wet: space.wet,
+        });
+        await reverb.generate();
+        nodes.push(reverb);
+    }
+
+    if (nodes.length === 0) return { input: destination, nodes: [] };
+
+    for (let i = 0; i < nodes.length - 1; i++) {
+        nodes[i].connect(nodes[i + 1]);
+    }
+    nodes[nodes.length - 1].connect(destination);
+
+    return { input: nodes[0], nodes };
+}
+
+/** Dispose a macro chain's nodes. Safe on the neutral (empty) chain. */
+export function disposeMacroNodes(nodes: Tone.ToneAudioNode[]): void {
+    for (const node of nodes) {
+        try {
+            node.dispose();
+        } catch (error) {
+            logger.warn('Error disposing clip macro node', { error });
+        }
+    }
+}
+
+// ============================================
+// Note Planning — macros applied to notes
+// ============================================
+
+/** One note, fully resolved: nothing left to decide at trigger time. */
+export interface PlannedNote {
+    pitch: number;
+    /** Absolute transport time in seconds. */
+    timeSeconds: number;
+    durationSeconds: number;
+    /** Normalised 0–1, ready for `triggerAttackRelease`. */
+    velocity: number;
+}
+
+/**
+ * Turn a clip's notes into the events that will actually be played, with
+ * Transpose, Groove, Humanize and Energy already folded in.
+ *
+ * Kept separate from the scheduling itself so the musical result can be
+ * asserted in a test without an audio context — and so the live and offline
+ * paths cannot possibly compute it differently, because neither computes it.
+ *
+ * Sorted by time: the monophonic stagger below numbers notes within a chord,
+ * and jitter can reorder them, so the order has to be decided here rather than
+ * inherited from however the array happened to be built.
+ */
+export function planClipNotes(
+    clip: Clip,
+    startSeconds: number,
+    bpm: number,
+    projectSwing: number
+): PlannedNote[] {
+    if (!clip.notes?.length) return [];
+
+    const macros = readClipMacros(clip);
+    const energyScale = energyVelocityScale(macros.energy);
+    const groove = effectiveGroove(projectSwing, macros.groove);
+    const planned: PlannedNote[] = [];
+
+    clip.notes.forEach((note, index) => {
+        const pitch = transposedPitch(note.pitch, macros.transpose);
+        if (pitch === null) return; // transposed off the keyboard
+
+        const jitter = humanizeOffset(macros.humanize, humanizeSeed(clip.id, note, index));
+        const beat =
+            note.startBeat + swingDelayBeats(groove, note.startBeat) + jitter.timingBeats;
+
+        planned.push({
+            pitch,
+            // Humanize can pull a note earlier than the clip starts; the
+            // transport has no negative time to schedule it at.
+            timeSeconds: Math.max(0, startSeconds + beatsToSeconds(beat, bpm)),
+            durationSeconds: beatsToSeconds(note.duration, bpm),
+            velocity: resolveVelocity(note.velocity, energyScale, jitter.velocity) / 127,
+        });
+    });
+
+    return planned.sort((a, b) => a.timeSeconds - b.timeSeconds);
+}
+
+// ============================================
+// MIDI / Drum Clips
+// ============================================
+
+/**
+ * Group planned notes by start time so monophonic instruments can be given a
+ * tiny stagger instead of swallowing simultaneous notes.
+ */
+function groupNotesByTime(notes: PlannedNote[]): Map<number, PlannedNote[]> {
+    const byTime = new Map<number, PlannedNote[]>();
+
+    for (const note of notes) {
+        // Quantize the key to 0.1ms so float drift doesn't split a chord.
+        const timeKey = Math.round(note.timeSeconds * 10000) / 10000;
+
+        const existing = byTime.get(timeKey);
+        if (existing) {
+            existing.push(note);
+        } else {
+            byTime.set(timeKey, [note]);
+        }
+    }
+
+    return byTime;
+}
+
+/**
+ * Schedule one MIDI or drum clip onto the given transport.
+ *
+ * The notes have already been resolved by `planClipNotes`, so nothing musical
+ * is decided here — this walks a finished list and books it. Returns the synth,
+ * the transport event ids and the macro nodes so the caller can tear all three
+ * down together.
+ */
+export async function scheduleMidiClip(
+    clip: Clip,
+    track: Track,
+    destination: Tone.ToneAudioNode,
+    startSeconds: number,
+    context: SchedulerContext
+): Promise<ScheduledMidiClip | null> {
+    if (!clip.notes?.length) return null;
+
+    const planned = planClipNotes(clip, startSeconds, context.bpm, context.swing);
+    if (planned.length === 0) return null; // e.g. transposed clean off the keyboard
+
+    const chain = await buildClipMacroChain(clip, destination);
+    const instrument = createSynthForClip(clip, track);
+    const { synth } = instrument;
+    // `output`, not `synth` — a custom instrument's Brightness filter sits
+    // between them, and connecting the voice directly would bypass it.
+    instrument.output.connect(chain.input);
+
+    // Samplers load their buffers asynchronously — playing before they are
+    // ready is silent, which is why both paths wait here.
+    await waitForSynthReady(synth);
+
+    const isPolyphonic = synth instanceof Tone.PolySynth || synth instanceof Tone.Sampler || synth instanceof HumVoice;
+    const eventIds: number[] = [];
+
+    for (const [timeKey, notes] of groupNotesByTime(planned)) {
+        notes.forEach((note, index) => {
+            // Monophonic voices get a 1ms stagger so a chord still articulates.
+            const scheduledTime = timeKey + (isPolyphonic ? 0 : index * 0.001);
+
+            const eventId = context.transport.schedule((time) => {
+                if (synth instanceof Tone.NoiseSynth) {
+                    // NoiseSynth has no pitch — duration and velocity only.
+                    synth.triggerAttackRelease(note.durationSeconds, time, note.velocity);
+                } else {
+                    synth.triggerAttackRelease(
+                        Tone.Frequency(note.pitch, 'midi').toFrequency(),
+                        note.durationSeconds,
+                        time,
+                        note.velocity
+                    );
+                }
+            }, scheduledTime);
+
+            eventIds.push(eventId);
+        });
+    }
+
+    // The instrument's own nodes ride along with the macro chain's, so both are
+    // torn down by the single `disposeMacroNodes` call the caller already makes.
+    return { synth, eventIds, macroNodes: [...instrument.nodes, ...chain.nodes] };
+}
+
+// ============================================
+// Teardown
+// ============================================
+
+/**
+ * Release a voice before disposing it. Dropping a sounding synth without a
+ * release leaves a hanging note in the graph until GC.
+ */
+export function releaseSynth(synth: SynthType): void {
+    try {
+        if (synth instanceof Tone.PolySynth || synth instanceof Tone.Sampler) {
+            synth.releaseAll();
+        } else {
+            synth.triggerRelease();
+        }
+    } catch (error) {
+        logger.warn('Error releasing synth', { error });
+    }
+}

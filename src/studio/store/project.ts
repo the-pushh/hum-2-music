@@ -1,0 +1,839 @@
+// Copied from ComposeYogi (MIT, https://github.com/AppsYogi-com/ComposeYogi at 13fe2f61) and adapted for hum.
+// See src/studio/LICENSE-ComposeYogi.
+// ============================================
+// ComposeYogi — Project Store
+// Central state for project data with undo/redo
+// ============================================
+
+import { create } from 'zustand';
+import { humPresets, type HumPresetId } from '@/studio/audio/humVoices';
+import { temporal } from 'zundo';
+import { MACRO_NEUTRAL } from '@/studio/audio/clip-macros';
+import { vibeById } from '@/studio/music';
+import type { SynthPresetId } from '@/studio/audio/synth-presets';
+import type {
+    Project,
+    Track,
+    Clip,
+    Note,
+    TrackType,
+    TrackColor,
+    TrackEffect,
+    TrackEffectType,
+    ClipType,
+    MusicalKey,
+    MusicalScale,
+    VibeId
+} from '@/studio/types';
+
+// ============================================
+// Store Types
+// ============================================
+
+interface ProjectState {
+    // Current project
+    project: Project | null;
+
+    // Loading states
+    isLoading: boolean;
+    isSaving: boolean;
+    lastSaved: number | null;
+    hasUnsavedChanges: boolean;
+}
+
+interface ProjectActions {
+    // Project lifecycle
+    createProject: (name?: string) => Project;
+    loadProject: (project: Project) => void;
+    updateProject: (updates: Partial<Project>) => void;
+    closeProject: () => void;
+
+    // Track operations
+    addTrack: (type: TrackType, name?: string, color?: TrackColor) => Track;
+    updateTrack: (trackId: string, updates: Partial<Track>) => void;
+    addTrackEffect: (trackId: string, type: TrackEffectType, presetId?: string) => void;
+    updateTrackEffect: (trackId: string, effectId: string, updates: Partial<TrackEffect>) => void;
+    removeTrackEffect: (trackId: string, effectId: string) => void;
+    deleteTrack: (trackId: string) => void;
+    reorderTracks: (trackIds: string[]) => void;
+
+    // Clip operations
+    addClip: (trackId: string, type: ClipType, startBar: number, lengthBars?: number) => Clip;
+    updateClip: (clipId: string, updates: Partial<Clip>) => void;
+    deleteClip: (clipId: string) => void;
+    deleteClips: (clipIds: string[]) => void;
+    duplicateClip: (clipId: string, offsetBars?: number) => Clip | null;
+    moveClip: (clipId: string, newTrackId: string, newStartBar: number) => void;
+    moveClipsByDelta: (clipIds: string[], deltaBars: number) => void;
+    resizeClip: (clipId: string, newLengthBars: number) => void;
+    splitClip: (clipId: string, atBar: number) => [Clip, Clip] | null;
+
+    // Note operations (for MIDI/drum clips)
+    addNote: (clipId: string, note: Omit<Note, 'id'>) => Note | null;
+    updateNote: (clipId: string, noteId: string, updates: Partial<Note>) => void;
+    deleteNote: (clipId: string, noteId: string) => void;
+
+    // Musical settings
+    setBpm: (bpm: number) => void;
+    setKey: (key: MusicalKey) => void;
+    setScale: (scale: MusicalScale) => void;
+    setVibe: (vibe: VibeId) => void;
+    setSwing: (swing: number) => void;
+    setTimeSignature: (timeSignature: [number, number]) => void;
+
+    // Save state
+    markSaved: () => void;
+    setLoading: (loading: boolean) => void;
+}
+
+type ProjectStore = ProjectState & ProjectActions;
+
+// ============================================
+// Default Values
+// ============================================
+
+const DEFAULT_BPM = 120;
+const DEFAULT_KEY: MusicalKey = 'C';
+const DEFAULT_SCALE: MusicalScale = 'minor';
+/** Straight. Every project starts unswung and opts in. */
+const DEFAULT_SWING = 0;
+const DEFAULT_TIME_SIGNATURE: [number, number] = [4, 4];
+
+const TRACK_COLORS: TrackColor[] = ['drums', 'bass', 'keys', 'melody', 'vocals', 'fx'];
+
+// ============================================
+// Helper Functions
+// ============================================
+
+const createDefaultProject = (name: string = 'Untitled Project'): Project => ({
+    id: crypto.randomUUID(),
+    name,
+    bpm: DEFAULT_BPM,
+    key: DEFAULT_KEY,
+    scale: DEFAULT_SCALE,
+    timeSignature: DEFAULT_TIME_SIGNATURE,
+    swing: DEFAULT_SWING,
+    tracks: [],
+    clips: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+});
+
+const getNextTrackColor = (tracks: Track[]): TrackColor => {
+    const usedColors = tracks.map(t => t.color);
+    const availableColor = TRACK_COLORS.find(c => !usedColors.includes(c));
+    return availableColor || TRACK_COLORS[tracks.length % TRACK_COLORS.length];
+};
+
+/**
+ * The instrument a new track starts on, by its role.
+ *
+ * Typed `Record<TrackColor, SynthPresetId>` rather than `Record<string, string>`,
+ * which is what it was: every role must name a default, and every default must
+ * name a preset that exists. As loose strings a typo compiled fine and fell
+ * through to a fallback at runtime, so a track would silently open on the wrong
+ * instrument — the same class of silent-list failure as the reschedule hash.
+ *
+ * `melody` was `saw-lead` until v1.4: a raw sawtooth held at 60% sustain, which
+ * is a soloing sound and an aggressive thing to hand someone who has just drawn
+ * their first four notes. A pluck decays (`sustain: 0`), so an overlapping first
+ * part comes out as music rather than a wall.
+ */
+// hum: melody tracks play hum's sampled piano (the voice card's sound) and drums its sampled LM-2.
+const DEFAULT_PRESET_FOR_COLOR: Record<TrackColor, SynthPresetId | HumPresetId> = {
+    drums: humPresets.drums,
+    bass: 'synth-bass',
+    // The app's piano, since 8.7.6f. `electric-piano` is a bare sine and was the
+    // default here — so a new Keys track started on the one waveform with
+    // nothing below its fundamental for a speaker to find.
+    keys: 'grand-piano',
+    melody: humPresets.piano,
+    fx: 'warm-pad',
+    vocals: 'basic-synth',
+};
+
+// ============================================
+// Store Implementation
+// ============================================
+
+const projectStoreBase = (
+    set: (fn: (state: ProjectState) => Partial<ProjectState>) => void,
+    get: () => ProjectStore
+): ProjectStore => ({
+    // Initial state
+    project: null,
+    isLoading: false,
+    isSaving: false,
+    lastSaved: null,
+    hasUnsavedChanges: false,
+
+    // Project lifecycle
+    createProject: (name) => {
+        const project = createDefaultProject(name);
+
+        // Add default starter tracks
+        const defaultTracks: Track[] = [
+            {
+                id: crypto.randomUUID(),
+                projectId: project.id,
+                name: 'Drums',
+                type: 'drum',
+                color: 'drums',
+                volume: 0.85,
+                pan: 0,
+                muted: false,
+                solo: false,
+                armed: false,
+                order: 0,
+            },
+            {
+                id: crypto.randomUUID(),
+                projectId: project.id,
+                name: 'Bass',
+                type: 'midi',
+                color: 'bass',
+                volume: 0.8,
+                pan: 0,
+                muted: false,
+                solo: false,
+                armed: false,
+                order: 1,
+            },
+            {
+                id: crypto.randomUUID(),
+                projectId: project.id,
+                name: 'Keys',
+                type: 'midi',
+                color: 'keys',
+                volume: 0.75,
+                pan: 0,
+                muted: false,
+                solo: false,
+                armed: false,
+                order: 2,
+            },
+            {
+                id: crypto.randomUUID(),
+                projectId: project.id,
+                name: 'Melody',
+                type: 'midi',
+                color: 'melody',
+                volume: 0.7,
+                pan: 0,
+                muted: false,
+                solo: false,
+                armed: false,
+                order: 3,
+            },
+        ];
+        project.tracks = defaultTracks;
+
+        set(() => ({
+            project,
+            hasUnsavedChanges: true,
+            lastSaved: null,
+        }));
+        return project;
+    },
+
+    loadProject: (project) => {
+        set(() => ({
+            project,
+            hasUnsavedChanges: false,
+            lastSaved: Date.now(),
+        }));
+    },
+
+    updateProject: (updates) => {
+        set((state) => ({
+            project: state.project
+                ? { ...state.project, ...updates, updatedAt: Date.now() }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    closeProject: () => {
+        set(() => ({
+            project: null,
+            hasUnsavedChanges: false,
+            lastSaved: null,
+        }));
+    },
+
+    // Track operations
+    addTrack: (type, name, color) => {
+        const state = get();
+        if (!state.project) throw new Error('No project loaded');
+
+        const tracks = state.project.tracks;
+        // Calculate next order as max existing order + 1 (handles gaps from deleted tracks)
+        const maxOrder = tracks.length > 0 ? Math.max(...tracks.map(t => t.order)) : -1;
+        const trackColor = color || getNextTrackColor(tracks);
+
+        const newTrack: Track = {
+            id: crypto.randomUUID(),
+            projectId: state.project.id,
+            name: name || `${type.charAt(0).toUpperCase() + type.slice(1)} ${tracks.length + 1}`,
+            type,
+            color: trackColor,
+            volume: 0.8,
+            pan: 0,
+            muted: false,
+            solo: false,
+            armed: false,
+            order: maxOrder + 1,
+            instrumentPreset: DEFAULT_PRESET_FOR_COLOR[trackColor],
+        };
+
+        set((s) => ({
+            project: s.project
+                ? {
+                    ...s.project,
+                    tracks: [...s.project.tracks, newTrack],
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+
+        return newTrack;
+    },
+
+    updateTrack: (trackId, updates) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    tracks: state.project.tracks.map((t) =>
+                        t.id === trackId ? { ...t, ...updates } : t
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    addTrackEffect: (trackId, type, presetId) => {
+        set((state) => {
+            if (!state.project) return {};
+
+            // Helper to get default params for effect type
+            const getDefaultParams = (type: TrackEffectType) => {
+                switch (type) {
+                    case 'reverb': return { decay: 1.5, preDelay: 0.01, wet: 0.5 };
+                    case 'delay': return { delayTime: 0.25, feedback: 0.5, wet: 0.5 };
+                    case 'distortion': return { distortion: 0.4, wet: 0.5 };
+                    case 'filter': return { frequency: 1000, type: 'lowpass', Q: 1, wet: 1 };
+                    case 'compression': return { threshold: -24, ratio: 12, attack: 0.003, release: 0.25 };
+                    default: return {};
+                }
+            };
+
+            return {
+                project: {
+                    ...state.project,
+                    tracks: state.project.tracks.map((t) => {
+                        if (t.id !== trackId) return t;
+                        const effects = t.effects || [];
+                        const newEffect: TrackEffect = {
+                            id: crypto.randomUUID(),
+                            type,
+                            active: true,
+                            presetId,
+                            params: getDefaultParams(type)
+                        };
+                        return { ...t, effects: [...effects, newEffect] };
+                    }),
+                    updatedAt: Date.now(),
+                },
+                hasUnsavedChanges: true,
+            };
+        });
+    },
+
+    removeTrackEffect: (trackId, effectId) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    tracks: state.project.tracks.map((t) => {
+                        if (t.id !== trackId) return t;
+                        return {
+                            ...t,
+                            effects: (t.effects || []).filter(e => e.id !== effectId)
+                        };
+                    }),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    updateTrackEffect: (trackId, effectId, updates) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    tracks: state.project.tracks.map((t) => {
+                        if (t.id !== trackId) return t;
+                        return {
+                            ...t,
+                            effects: (t.effects || []).map(e =>
+                                e.id === effectId ? { ...e, ...updates } : e
+                            )
+                        };
+                    }),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    deleteTrack: (trackId) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    tracks: state.project.tracks.filter((t) => t.id !== trackId),
+                    clips: state.project.clips.filter((c) => c.trackId !== trackId),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    reorderTracks: (trackIds) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    tracks: trackIds
+                        .map((id, index) => {
+                            const track = state.project!.tracks.find((t) => t.id === id);
+                            return track ? { ...track, order: index } : null;
+                        })
+                        .filter((t): t is Track => t !== null),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    // Clip operations
+    addClip: (trackId, type, startBar, lengthBars = 4) => {
+        const state = get();
+        if (!state.project) throw new Error('No project loaded');
+
+        const newClip: Clip = {
+            id: crypto.randomUUID(),
+            trackId,
+            type,
+            name: `Clip ${state.project.clips.length + 1}`,
+            startBar,
+            lengthBars,
+            notes: type === 'midi' || type === 'drum' ? [] : undefined,
+            // Spread rather than repeated, so a new clip is neutral by
+            // definition and cannot drift from what the macros call neutral.
+            ...MACRO_NEUTRAL,
+        };
+
+        set((s) => ({
+            project: s.project
+                ? {
+                    ...s.project,
+                    clips: [...s.project.clips, newClip],
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+
+        return newClip;
+    },
+
+    updateClip: (clipId, updates) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.map((c) =>
+                        c.id === clipId ? { ...c, ...updates } : c
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    deleteClip: (clipId) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.filter((c) => c.id !== clipId),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    deleteClips: (clipIds) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.filter((c) => !clipIds.includes(c.id)),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    duplicateClip: (clipId, offsetBars = 0) => {
+        const state = get();
+        if (!state.project) return null;
+
+        const original = state.project.clips.find((c) => c.id === clipId);
+        if (!original) return null;
+
+        const newClip: Clip = {
+            ...original,
+            id: crypto.randomUUID(),
+            name: `${original.name} (copy)`,
+            startBar: original.startBar + original.lengthBars + offsetBars,
+            notes: original.notes ? original.notes.map((n) => ({ ...n, id: crypto.randomUUID() })) : undefined,
+        };
+
+        set((s) => ({
+            project: s.project
+                ? {
+                    ...s.project,
+                    clips: [...s.project.clips, newClip],
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+
+        return newClip;
+    },
+
+    moveClip: (clipId, newTrackId, newStartBar) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.map((c) =>
+                        c.id === clipId
+                            ? { ...c, trackId: newTrackId, startBar: newStartBar }
+                            : c
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    moveClipsByDelta: (clipIds, deltaBars) => {
+        if (clipIds.length === 0 || Math.abs(deltaBars) < 0.001) return;
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.map((c) =>
+                        clipIds.includes(c.id)
+                            ? { ...c, startBar: Math.max(0, c.startBar + deltaBars) }
+                            : c
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    resizeClip: (clipId, newLengthBars) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.map((c) =>
+                        c.id === clipId ? { ...c, lengthBars: Math.max(1, newLengthBars) } : c
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    splitClip: (clipId, atBar) => {
+        const state = get();
+        if (!state.project) return null;
+
+        const original = state.project.clips.find((c) => c.id === clipId);
+        if (!original) return null;
+
+        const splitPoint = atBar - original.startBar;
+        if (splitPoint <= 0 || splitPoint >= original.lengthBars) return null;
+
+        // Notes are stored in beats, so the cut has to be measured with the
+        // project's own beats-per-bar — not an assumed 4/4.
+        const beatsPerBar = state.project.timeSignature[0];
+        const splitBeat = splitPoint * beatsPerBar;
+
+        const firstClip: Clip = {
+            ...original,
+            lengthBars: splitPoint,
+        };
+
+        const secondClip: Clip = {
+            ...original,
+            id: crypto.randomUUID(),
+            name: `${original.name} (split)`,
+            startBar: atBar,
+            lengthBars: original.lengthBars - splitPoint,
+            notes: original.notes
+                ?.filter((n) => n.startBeat >= splitBeat)
+                .map((n) => ({
+                    ...n,
+                    id: crypto.randomUUID(),
+                    startBeat: n.startBeat - splitBeat,
+                })),
+        };
+
+        // Filter notes for first clip
+        if (firstClip.notes) {
+            firstClip.notes = firstClip.notes.filter((n) => n.startBeat < splitBeat);
+        }
+
+        set((s) => ({
+            project: s.project
+                ? {
+                    ...s.project,
+                    clips: [
+                        ...s.project.clips.filter((c) => c.id !== clipId),
+                        firstClip,
+                        secondClip,
+                    ],
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+
+        return [firstClip, secondClip];
+    },
+
+    // Note operations
+    addNote: (clipId, noteData) => {
+        const state = get();
+        if (!state.project) return null;
+
+        const clip = state.project.clips.find((c) => c.id === clipId);
+        if (!clip || (clip.type !== 'midi' && clip.type !== 'drum')) return null;
+
+        const newNote: Note = {
+            id: crypto.randomUUID(),
+            ...noteData,
+        };
+
+        set((s) => ({
+            project: s.project
+                ? {
+                    ...s.project,
+                    clips: s.project.clips.map((c) =>
+                        c.id === clipId
+                            ? { ...c, notes: [...(c.notes || []), newNote] }
+                            : c
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+
+        return newNote;
+    },
+
+    updateNote: (clipId, noteId, updates) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.map((c) =>
+                        c.id === clipId
+                            ? {
+                                ...c,
+                                notes: c.notes?.map((n) =>
+                                    n.id === noteId ? { ...n, ...updates } : n
+                                ),
+                            }
+                            : c
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    deleteNote: (clipId, noteId) => {
+        set((state) => ({
+            project: state.project
+                ? {
+                    ...state.project,
+                    clips: state.project.clips.map((c) =>
+                        c.id === clipId
+                            ? { ...c, notes: c.notes?.filter((n) => n.id !== noteId) }
+                            : c
+                    ),
+                    updatedAt: Date.now(),
+                }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    // Musical settings
+    setBpm: (bpm) => {
+        set((state) => ({
+            project: state.project
+                ? { ...state.project, bpm: Math.max(20, Math.min(300, bpm)), updatedAt: Date.now() }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    setKey: (key) => {
+        set((state) => ({
+            project: state.project
+                ? { ...state.project, key, updatedAt: Date.now() }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    setScale: (scale) => {
+        set((state) => ({
+            project: state.project
+                ? { ...state.project, scale, updatedAt: Date.now() }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    /**
+     * Set key and scale together from a named feel. One action rather than two
+     * setter calls, so a vibe change is a single undo step and a single autosave.
+     */
+    setVibe: (vibeId) => {
+        const vibe = vibeById(vibeId);
+        if (!vibe) return;
+
+        set((state) => ({
+            project: state.project
+                ? { ...state.project, key: vibe.key, scale: vibe.scale, updatedAt: Date.now() }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    setSwing: (swing) => {
+        set((state) => ({
+            project: state.project
+                ? { ...state.project, swing: Math.max(0, Math.min(100, swing)), updatedAt: Date.now() }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    setTimeSignature: (timeSignature) => {
+        set((state) => ({
+            project: state.project
+                ? { ...state.project, timeSignature, updatedAt: Date.now() }
+                : null,
+            hasUnsavedChanges: true,
+        }));
+    },
+
+    // Save state
+    markSaved: () => {
+        set(() => ({
+            hasUnsavedChanges: false,
+            lastSaved: Date.now(),
+        }));
+    },
+
+    setLoading: (loading) => {
+        set(() => ({ isLoading: loading }));
+    },
+});
+
+// ============================================
+// Create Store with Undo/Redo (zundo)
+// ============================================
+
+/**
+ * What undo actually compares.
+ *
+ * Every mutation stamps `project.updatedAt`, so comparing the raw partialized
+ * state makes an edit that changed nothing still look like a change — the two
+ * states differ by a timestamp. That put an empty step on the undo stack for
+ * any gesture that ended where it began (a velocity drag returned to its start,
+ * a clip dragged and dropped back), and it did so only sometimes: two writes
+ * inside the same millisecond compared equal, two across a boundary did not.
+ *
+ * The timestamp is still stored and still restored by undo. It just does not
+ * decide whether two states are the same.
+ */
+function undoContent(state: { project: Project | null }): string {
+    if (!state.project) return 'null';
+    return JSON.stringify({ ...state.project, updatedAt: 0 });
+}
+
+export const useProjectStore = create<ProjectStore>()(
+    temporal(projectStoreBase, {
+        // Only track project changes, not UI state
+        partialize: (state) => ({
+            project: state.project,
+        }),
+        // Limit history to 100 states
+        limit: 100,
+        // Equality check to avoid duplicate states
+        equality: (pastState, currentState) =>
+            undoContent(pastState) === undoContent(currentState),
+    })
+);
+
+// ============================================
+// Selectors
+// ============================================
+
+export const selectProject = (state: ProjectStore) => state.project;
+export const selectTracks = (state: ProjectStore) => state.project?.tracks ?? [];
+export const selectClips = (state: ProjectStore) => state.project?.clips ?? [];
+export const selectBpm = (state: ProjectStore) => state.project?.bpm ?? DEFAULT_BPM;
+export const selectKey = (state: ProjectStore) => state.project?.key ?? DEFAULT_KEY;
+export const selectScale = (state: ProjectStore) => state.project?.scale ?? DEFAULT_SCALE;
+export const selectSwing = (state: ProjectStore) => state.project?.swing ?? DEFAULT_SWING;
+export const selectHasUnsavedChanges = (state: ProjectStore) => state.hasUnsavedChanges;
+
+export const selectTrackById = (trackId: string) => (state: ProjectStore) =>
+    state.project?.tracks.find((t) => t.id === trackId);
+
+export const selectClipById = (clipId: string) => (state: ProjectStore) =>
+    state.project?.clips.find((c) => c.id === clipId);
+
+export const selectClipsByTrack = (trackId: string) => (state: ProjectStore) =>
+    state.project?.clips.filter((c) => c.trackId === trackId) ?? [];

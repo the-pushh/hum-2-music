@@ -1,7 +1,6 @@
 # hum-2-music
 
-hum is a sketchpad for song ideas. Hum a melody, write lyrics, and collect pictures, links and colours into a
-sketch. Everything stays in your browser (IndexedDB). There's no account and no server storage.
+hum is a sketchpad for song ideas. Hum a melody, write lyrics, and collect pictures into a sketch. Everything stays in your browser (IndexedDB). There's no account and no server storage.
 
 ## Run it
 
@@ -54,3 +53,15 @@ stop it (Ctrl+C) when you're done.
 - On the card, switch **Raw**/**Clean**, **Snap**/**As sung** and **1/8**/**1/16**: the strip changes at once.
 - Play the piano once, turn on airplane mode, and play it again without reloading: it should still work.
 - Watch the pitch line: if it stutters, or the recording skips while it draws, note the phone model.
+
+### Studio checks (M3)
+
+- Hum a melody into a sketch, wait for its notes, then tap **Open in studio**. The hum is a track; **Play** sounds
+  like the card's piano and loops it.
+- Tap the hum's lane to open the piano roll. With a finger: tap to add a note, drag one to move it, drag its right
+  end to make it longer, double tap to delete it. Scrolling the roll with a finger shouldn't add notes.
+- Tap **Generate parts**: Chords, Bass and Drums appear and play with the melody. Do they sound like a small song?
+- Open the Drums track: tap steps to add, accent and clear hits. Mute, solo and a volume drag work while playing.
+- Undo and redo each edit. Reload the page: everything is still there.
+- Tap **Export MIDI**, then open the file in another DAW (GarageBand, Logic, Ableton…): one track per part, drums
+  on the drum channel, the right tempo.

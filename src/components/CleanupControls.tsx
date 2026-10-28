@@ -51,7 +51,7 @@ export function CleanupControls({ idea }: { idea: VoiceIdea }) {
         />
       )}
       {error && (
-        <span role="alert" className="text-xs text-accent">
+        <span role="alert" className="text-xs font-semibold">
           Couldn&apos;t save that change.
         </span>
       )}

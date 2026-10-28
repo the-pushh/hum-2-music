@@ -1,4 +1,5 @@
 import type { Idea } from "@/sketches/types";
+import { ideaBg } from "@/ui/ideaColors";
 import { ColorCard } from "./ColorCard";
 import { ImageCard } from "./ImageCard";
 import { LinkCard } from "./LinkCard";
@@ -9,8 +10,9 @@ export function IdeaCard({ data }: { data: Idea }) {
   switch (data.kind) {
     case "note":
       return (
-        <article className="rounded-2xl bg-surface p-4">
-          <p className="whitespace-pre-wrap text-base text-ink">{data.text}</p>
+        <article className={`flex flex-col gap-1 rounded-2xl p-4 text-canvas ${ideaBg.note}`}>
+          <span className="text-xs font-semibold uppercase opacity-70">Note</span>
+          <p className="whitespace-pre-wrap text-base">{data.text}</p>
         </article>
       );
     case "voice":

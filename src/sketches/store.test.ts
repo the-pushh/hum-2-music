@@ -1,5 +1,7 @@
 import "fake-indexeddb/auto";
+import Dexie from "dexie";
 import { describe, expect, it } from "vitest";
+import type { Project } from "@/studio/types";
 import { openSketchStore } from "./store";
 import type { LyricsDoc } from "./types";
 
@@ -273,5 +275,82 @@ describe("sketch store", () => {
     expect(await store.listIdeas(doomed.id)).toEqual([]);
     expect((await store.listSketches()).map((s) => s.id)).toEqual([kept.id]);
     expect(await store.listIdeas(kept.id)).toEqual([keptIdea]);
+  });
+
+  describe("arrangements", () => {
+    const project = (name: string): Project => ({
+      id: `p-${name}`,
+      name,
+      bpm: 90,
+      key: "C",
+      scale: "major",
+      timeSignature: [4, 4],
+      tracks: [],
+      clips: [],
+      createdAt: 0,
+      updatedAt: 0,
+    });
+
+    it("has no arrangement until the studio saves one", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      expect(await store.getArrangement(sketch.id)).toBeUndefined();
+    });
+
+    it("saves and reads back a Sketch's arrangement, the latest save winning", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      await store.saveArrangement(sketch.id, { project: project("first"), heard: { hum1: "60:0:1" } });
+      await store.saveArrangement(sketch.id, { project: project("second"), heard: { hum1: "62:0:1" } });
+
+      const saved = await store.getArrangement(sketch.id);
+      expect(saved).toMatchObject({ sketchId: sketch.id, project: project("second"), heard: { hum1: "62:0:1" } });
+      expect(saved!.savedAt).toBeGreaterThan(0);
+    });
+
+    it("keeps each Sketch's arrangement separate", async () => {
+      const store = freshStore();
+      const a = await store.createSketch("A");
+      const b = await store.createSketch("B");
+      await store.saveArrangement(a.id, { project: project("a"), heard: {} });
+      await store.saveArrangement(b.id, { project: project("b"), heard: {} });
+      expect((await store.getArrangement(a.id))!.project.name).toBe("a");
+      expect((await store.getArrangement(b.id))!.project.name).toBe("b");
+    });
+
+    it("moves the Sketch to the top of the recent list when its arrangement is saved", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Older");
+      await store.createSketch("Newer");
+      await store.saveArrangement(sketch.id, { project: project("x"), heard: {} });
+      expect((await store.listSketches())[0].id).toBe(sketch.id);
+    });
+
+    it("refuses an arrangement for a Sketch that isn't there", async () => {
+      const store = freshStore();
+      await expect(store.saveArrangement("missing", { project: project("x"), heard: {} })).rejects.toThrow(/not found/);
+    });
+
+    it("deletes the arrangement along with its Sketch", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      await store.saveArrangement(sketch.id, { project: project("x"), heard: {} });
+      await store.deleteSketch(sketch.id);
+      expect(await store.getArrangement(sketch.id)).toBeUndefined();
+    });
+
+    it("still reads Sketches and Ideas saved before arrangements existed", async () => {
+      const name = `test-${n++}`;
+      const old = new Dexie(name);
+      old.version(1).stores({ sketches: "id, updatedAt", ideas: "id, sketchId, [sketchId+order]" });
+      await old.table("sketches").add({ id: "s1", title: "From M2", createdAt: 1, updatedAt: 1 });
+      await old.table("ideas").add({ id: "i1", sketchId: "s1", order: 0, createdAt: 1, kind: "note", text: "kept" });
+      old.close();
+
+      const store = openSketchStore({ name });
+      expect((await store.getSketch("s1"))?.title).toBe("From M2");
+      expect((await store.listIdeas("s1")).map((i) => i.id)).toEqual(["i1"]);
+      expect(await store.getArrangement("s1")).toBeUndefined();
+    });
   });
 });

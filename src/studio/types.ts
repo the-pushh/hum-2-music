@@ -1,0 +1,575 @@
+// Copied from ComposeYogi (MIT, https://github.com/AppsYogi-com/ComposeYogi at 13fe2f61) and adapted for hum.
+// See src/studio/LICENSE-ComposeYogi.
+// ============================================
+// ComposeYogi — Core Type Definitions
+// ============================================
+
+// Track roles and drum families, moved here from ComposeYogi's design tokens (hum has its own tokens).
+export const TRACK_ROLES = ['drums', 'bass', 'keys', 'melody', 'vocals', 'fx'] as const;
+export type TrackRole = (typeof TRACK_ROLES)[number];
+
+/** General-MIDI drum families, used for the sequencer's lane rail. */
+export const DRUM_FAMILIES = ['kick', 'snare', 'tom', 'hat', 'cymbal', 'perc', 'other'] as const;
+export type DrumFamily = (typeof DRUM_FAMILIES)[number];
+
+// ============================================
+// Project & Composition Types
+// ============================================
+
+export interface Project {
+    id: string;
+    name: string;
+    bpm: number;
+    key: MusicalKey;
+    scale: MusicalScale;
+    timeSignature: [number, number];
+    tracks: Track[];
+    clips: Clip[];
+    createdAt: number;
+    updatedAt: number;
+    latencyOffset?: number; // ms, from calibration
+    /**
+     * Project-wide swing, 0-100. Absent and 0 both mean straight, which is what
+     * lets every project saved before this existed keep playing as recorded.
+     * A clip's Groove macro adds to this — see effectiveGroove in clip-macros.
+     */
+    swing?: number;
+}
+
+export type MusicalKey = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B';
+
+export type MusicalScale =
+    | 'major'
+    | 'minor'
+    | 'harmonicMinor'
+    | 'melodicMinor'
+    | 'dorian'
+    | 'phrygian'
+    | 'lydian'
+    | 'mixolydian'
+    | 'locrian'
+    | 'pentatonicMajor'
+    | 'pentatonicMinor'
+    | 'blues'
+    | 'chromatic';
+
+/**
+ * A named feel that resolves to a key and a scale. See lib/music/scales.ts for
+ * what each one maps to and why.
+ */
+export type VibeId =
+    | 'chill'
+    | 'happy'
+    | 'sad'
+    | 'dark'
+    | 'dreamy'
+    | 'epic'
+    | 'funky'
+    | 'bluesy'
+    | 'playful';
+
+// ============================================
+// Track Types
+// ============================================
+
+export interface Track {
+    id: string;
+    projectId: string;
+    name: string;
+    type: TrackType;
+    color: TrackColor;
+    volume: number;        // 0-1
+    pan: number;           // -1 to 1
+    muted: boolean;
+    solo: boolean;
+    armed: boolean;
+    instrumentPreset?: string;
+    effects?: TrackEffect[];
+    order: number;
+    /** hum: where the track came from, so a hum's track can be refreshed and generated parts replaced. Absent for tracks added by hand. */
+    origin?: TrackOrigin;
+}
+
+/** hum: a hum's melody, or a part a Generator wrote. */
+export type TrackOrigin = { kind: 'hum'; ideaId: string } | { kind: 'generated'; part: 'chords' | 'bass' | 'drums' };
+
+export type TrackEffectType = 'reverb' | 'delay' | 'distortion' | 'filter' | 'compression';
+
+export interface TrackEffect {
+    id: string;
+    type: TrackEffectType;
+    active: boolean;
+    presetId?: string; // Reference to FX_PRESETS
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- effect params vary by type; kept as upstream
+    params: Record<string, any>;
+}
+
+export type TrackType = 'audio' | 'midi' | 'drum';
+
+/**
+ * Track colour roles. Derived from the design system rather than restated here:
+ * lib/design/tokens.ts defines the six roles and their hues together, so a role
+ * cannot exist as a type without existing as a colour.
+ */
+export type TrackColor = TrackRole;
+
+// ============================================
+// Clip Types
+// ============================================
+
+export interface Clip {
+    id: string;
+    trackId: string;
+    type: ClipType;
+    name: string;
+    startBar: number;
+    lengthBars: number;
+    // Audio-specific
+    audioTakeIds?: string[];
+    activeTakeId?: string;
+    trimStart?: number;    // seconds
+    trimEnd?: number;      // seconds
+    fadeIn?: number;       // seconds
+    fadeOut?: number;      // seconds
+    /** Play the take resampled so its source tempo matches the project's.
+     *  v1 repitches — see lib/audio/stretch.ts. */
+    stretchToBpm?: boolean;
+    /** Tempo the audio was made at. Absent means "infer it from lengthBars",
+     *  which is exact for anything recorded or dropped inside the app. */
+    sourceBpm?: number;
+    // MIDI/Drum-specific
+    notes?: Note[];
+    // Instrument
+    instrumentPreset?: string; // Synth preset ID (overrides track default)
+    // Common
+    transpose?: number;
+    humanize?: number;     // 0-100
+    energy?: number;       // 0-100 (macro)
+    groove?: number;       // 0-100 (macro)
+    brightness?: number;   // 0-100 (macro)
+    space?: number;        // 0-100 (macro)
+}
+
+export type ClipType = 'audio' | 'midi' | 'drum';
+
+// ============================================
+// Audio Types
+// ============================================
+
+export interface AudioTake {
+    id: string;
+    clipId: string;
+    audioData: Uint8Array; // Raw audio bytes
+    sampleRate: number;
+    duration: number;      // seconds
+    peaks: PeaksCache;
+    createdAt: number;
+}
+
+export interface PeaksCache {
+    [samplesPerPixel: number]: {
+        min: Float32Array;
+        max: Float32Array;
+    };
+}
+
+export interface UserSample {
+    id: string;
+    name: string;
+    fileName: string;
+    mimeType: string;
+    fileSize: number;
+    audioData: Uint8Array; // Raw audio bytes
+    sampleRate: number;
+    duration: number;      // seconds
+    peaks: PeaksCache;
+    bpm?: number;
+    key?: string;
+    createdAt: number;
+}
+
+// ============================================
+// Custom Instrument Types
+// ============================================
+
+/** The Tone voice a PolySynth wraps. Every built-in melodic preset is one of these. */
+export type InstrumentVoice = 'synth' | 'monosynth' | 'fmsynth' | 'amsynth';
+
+/**
+ * The Tone class a percussion voice *is* — not wrapped in a PolySynth, because
+ * neither one is polyphonic and a drum does not want to be.
+ *
+ * This is the discriminant between the two kinds of spec. It could have been a
+ * separate `kind` field, but `voice` already had to differ and a second field
+ * that can only ever agree with the first is a second thing to get wrong.
+ */
+export type DrumVoice = 'membrane' | 'noise';
+
+/**
+ * An oscillator, as data. `type` carries the whole variation Tone allows —
+ * `partials` for an additive `custom` wave, `width` for a pulse, `spread` and
+ * `count` for the detuned `fat` family — because a spec that dropped them
+ * could not reproduce the preset it claims to start from.
+ */
+export interface OscillatorSpec {
+    type: string;
+    partials?: number[];
+    width?: number;
+    spread?: number;
+    count?: number;
+}
+
+/** A noise source, as data. Tone's three colours; `white` is its own default. */
+export interface NoiseSpec {
+    type: 'white' | 'pink' | 'brown';
+}
+
+/** Attack, decay, sustain, release. Times in seconds; sustain is a 0-1 level. */
+export interface EnvelopeSpec {
+    attack: number;
+    decay: number;
+    sustain: number;
+    release: number;
+}
+
+/** A MonoSynth's filter sweep — an envelope plus where it sweeps from and how far. */
+export interface FilterEnvelopeSpec extends EnvelopeSpec {
+    baseFrequency: number;
+    octaves: number;
+}
+
+/**
+ * A whole instrument as plain JSON: what a custom instrument stores, what the
+ * editor edits, and what an export file contains.
+ *
+ * The three macro fields are the ones the editor exposes on top of the voice.
+ * `brightness` is deliberately a post-voice filter rather than a per-voice one:
+ * only MonoSynth has a filter of its own, and a control that vanished on three
+ * voices out of four would be worse than one that behaves the same everywhere.
+ * At 100 no filter is built at all, so an unedited custom instrument is the
+ * source preset exactly — not approximately.
+ */
+export interface InstrumentSpec {
+    voice: InstrumentVoice;
+    oscillator: OscillatorSpec;
+    envelope: EnvelopeSpec;
+    /** 0-100 lowpass cutoff. 100 is wide open and builds no filter node. */
+    brightness: number;
+    /** 0-100 filter resonance (Q). Inert at full brightness. */
+    resonance: number;
+    /** Output trim in dB. */
+    level: number;
+    /** MonoSynth's own filter sweep, carried through from the source preset. */
+    filterEnvelope?: FilterEnvelopeSpec;
+    /** FM/AM character, carried through from the source preset. */
+    modulation?: OscillatorSpec;
+    modulationEnvelope?: EnvelopeSpec;
+    harmonicity?: number;
+    modulationIndex?: number;
+}
+
+/**
+ * A percussion voice as plain JSON — the drum half of the same idea.
+ *
+ * Separate from `InstrumentSpec` rather than a pile of optional fields on it,
+ * because almost nothing overlaps: a membrane has a pitch sweep and no filter,
+ * a noise burst has neither a pitch nor an oscillator, and every melodic field
+ * (brightness, resonance, the modulation character) is meaningless on both.
+ * One type carrying all of it would be a type where most combinations are
+ * invalid and nothing says which.
+ *
+ * There is deliberately **no brightness** here. On a melodic voice it is a
+ * post-voice lowpass that has to prove it builds no node at 100; on a drum the
+ * same darkening is what the wave and the pitch sweep already do, so the drum
+ * path builds a bare voice and is identical to its preset by construction
+ * rather than by argument.
+ */
+export interface DrumSpec {
+    voice: DrumVoice;
+    envelope: EnvelopeSpec;
+    /** Output trim in dB. The one macro both kinds share. */
+    level: number;
+    /** Membrane only: the body's waveform. */
+    oscillator?: OscillatorSpec;
+    /** Membrane only: how long the pitch takes to fall — the "snap" of the hit. */
+    pitchDecay?: number;
+    /** Membrane only: how far it falls, in octaves. */
+    octaves?: number;
+    /** Noise only: the colour of the burst. */
+    noise?: NoiseSpec;
+}
+
+/** Either kind of spec. Narrow with `isDrumSpec`. */
+export type AnyInstrumentSpec = InstrumentSpec | DrumSpec;
+
+/** A user-made instrument: a spec, a name, and where it came from. */
+export interface CustomInstrument {
+    /** `custom:<uuid>` — the prefix is what makes a bare instrumentPreset
+     *  string self-describing wherever one is passed around. */
+    id: string;
+    name: string;
+    /** The built-in it was started from. Shown in the browser, and what Revert
+     *  restores. */
+    basePresetId: string;
+    spec: AnyInstrumentSpec;
+    /**
+     * Bumped on every save. The reschedule hash reads it because the id cannot
+     * change when the sound does — without this, editing an instrument already
+     * assigned to a track leaves playback on the previous voice, silently.
+     */
+    revision: number;
+    createdAt: number;
+    updatedAt: number;
+}
+
+// ============================================
+// MIDI Types
+// ============================================
+
+export interface Note {
+    id: string;
+    pitch: number;         // MIDI note number (0-127)
+    startBeat: number;     // In beats from clip start
+    duration: number;      // In beats
+    velocity: number;      // 0-127
+}
+
+// ============================================
+// Template Types
+// ============================================
+
+export interface Template {
+    id: string;
+    name: string;
+    emoji: string;
+    description: string;
+    bpm: number;
+    key: MusicalKey;
+    scale: MusicalScale;
+    genre: TemplateGenre;
+    tracks: TemplateTrack[];
+    clips: TemplateClip[];
+    audioUrls: string[];   // URLs for lazy loading
+}
+
+export interface TemplateTrack {
+    name: string;
+    type: TrackType;
+    color: TrackColor;
+    instrumentPreset?: string;
+}
+
+export interface TemplateClip {
+    trackIndex: number;
+    type: ClipType;
+    startBar: number;
+    lengthBars: number;
+    audioUrl?: string;
+    notes?: Note[];
+}
+
+export type TemplateGenre =
+    | 'lofi'
+    | 'trap'
+    | 'ambient'
+    | 'afro'
+    | 'pop'
+    | 'edm'
+    | 'rock'
+    | 'jazz';
+
+// ============================================
+// UI State Types
+// ============================================
+
+export interface UIState {
+    // Panel visibility
+    browserOpen: boolean;
+    inspectorOpen: boolean;
+    editorOpen: boolean;
+
+    // Active selections
+    selectedTrackId: string | null;
+    selectedClipIds: string[];
+
+    // Active editor context
+    activeEditorClipId: string | null;
+    editorScope: EditorScope;
+
+    // Viewport
+    zoom: number;          // samplesPerPixel
+    scrollX: number;       // pixels
+    scrollY: number;       // pixels
+
+    // Loop region
+    loopStart: number;     // bars
+    loopEnd: number;       // bars
+    loopEnabled: boolean;
+
+    // Recording
+    punchEnabled: boolean;
+    countInBars: number;
+
+    // Modals
+    activeModal: ModalType | null;
+}
+
+export type EditorScope =
+    | 'arrangement'
+    | 'pianoRoll'
+    | 'drumSequencer'
+    | 'waveformEditor';
+
+export type ModalType =
+    | 'export'
+    | 'latencyCalibration'
+    | 'shortcuts'
+    | 'settings'
+    | 'newProject';
+
+/** Collapsible sections of the Inspector, in the order they are rendered. */
+export type InspectorSectionId =
+    | 'project'
+    | 'track'
+    | 'effects'
+    | 'clip'
+    | 'feel';
+
+/**
+ * Grid resolution for dragging in the timeline and drawing in the piano roll.
+ * Values are note lengths; a trailing T is the triplet of that length. See
+ * lib/music/snap.ts for the beat each one is worth.
+ */
+export type SnapValue =
+    | 'off'
+    | '1'
+    | '1/2'
+    | '1/4'
+    | '1/8'
+    | '1/16'
+    | '1/32'
+    | '1/4T'
+    | '1/8T'
+    | '1/16T';
+
+// ============================================
+// Playback State Types
+// ============================================
+
+export interface PlaybackState {
+    isPlaying: boolean;
+    isRecording: boolean;
+    currentBar: number;
+    // Refs (not stored in state, but typed here for hook returns)
+}
+
+export interface PlaybackRefs {
+    currentTimeRef: React.MutableRefObject<number>;
+    isPlayingRef: React.MutableRefObject<boolean>;
+    playbackStartTimeRef: React.MutableRefObject<number>;
+    audioStartPositionRef: React.MutableRefObject<number>;
+}
+
+// ============================================
+// Web Worker Types
+// ============================================
+
+export interface AudioWorkerMessage {
+    type: 'computePeaks' | 'cancel';
+    jobId: string;
+    data?: {
+        channelData: Float32Array[];
+        sampleRate: number;
+        targetWidth: number;
+        samplesPerPixel?: number;
+    };
+}
+
+export interface AudioWorkerResponse {
+    type: 'progress' | 'result' | 'error';
+    jobId: string;
+    progress?: number;
+    message?: string;
+    peaks?: { min: Float32Array; max: Float32Array };
+    error?: string;
+}
+
+// ============================================
+// Persistence Types
+// ============================================
+
+export interface DBSchema {
+    projects: {
+        key: string;
+        value: Project;
+        indexes: {
+            'by-updated': number;
+        };
+    };
+    audioTakes: {
+        key: string;
+        value: AudioTake;
+        indexes: {
+            'by-clip': string;
+        };
+    };
+    settings: {
+        key: string;
+        value: AppSettings;
+    };
+}
+
+export interface AppSettings {
+    latencyOffset: number;
+    metronomeVolume: number;
+    defaultCountIn: number;
+    theme: 'dark' | 'light';
+    locale: string;
+}
+
+// ============================================
+// Keyboard Shortcut Types
+// ============================================
+
+export interface ShortcutConfig {
+    key: string;
+    modifiers?: ('mod' | 'shift' | 'alt')[];
+    action: string;
+    scope?: EditorScope | 'global';
+    description: string;
+}
+
+// ============================================
+// Export Types
+// ============================================
+
+export interface ExportOptions {
+    format: 'wav' | 'midi';
+    includeMetronome: boolean;
+    startBar?: number;
+    endBar?: number;
+    quality?: 'high' | 'medium' | 'low';
+}
+
+export interface ExportProgress {
+    status: 'preparing' | 'rendering' | 'encoding' | 'complete' | 'error';
+    progress: number;
+    message: string;
+}
+
+// ============================================
+// Latency Calibration Types
+// ============================================
+
+export interface CalibrationResult {
+    latencyMs: number;
+    confidence: 'high' | 'medium' | 'low';
+    attempts: number;
+}
+
+export interface CalibrationState {
+    status: 'idle' | 'preparing' | 'playing' | 'analyzing' | 'complete' | 'error';
+    progress: number;
+    result?: CalibrationResult;
+    error?: string;
+}

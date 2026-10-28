@@ -19,6 +19,15 @@
   --color-accent: #ff5a36;
   --color-accent-ink: #131209;
 
+  /* Studio track roles: a track's color says what it plays. Bright, so dark ink reads on them, and always shown
+     with the track's name, never alone. */
+  --color-melody: #e2f562;
+  --color-keys: #ffcf6e;
+  --color-bass: #86a3ff;
+  --color-drums: #8fe6f5;
+  --color-vocals: #f7a6d2;
+  --color-fx: #c3abff;
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 
