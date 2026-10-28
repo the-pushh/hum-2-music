@@ -1,11 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { useLiveQuery } from "dexie-react-hooks";
+import { useEffect } from "react";
 import { ArrowLeft, Play, Stop } from "@phosphor-icons/react";
-import { sketchStore } from "@/sketches/client";
-import { sketchToProject } from "@/studio/sketchToProject";
+import { useArrangement } from "@/studio/useArrangement";
 import { useProjectStore } from "@/studio/store/project";
 import { usePlaybackStore } from "@/studio/store/playback";
 import { playProject, stopProject } from "@/studio/transport";
@@ -13,24 +11,14 @@ import { Button } from "../Button";
 
 /** A Sketch's studio: its hums as tracks in a small arrangement you can play. */
 export function StudioScreen({ sketchId }: { sketchId: string }) {
-  // null means "looked and it isn't there"; undefined means still loading.
-  const sketch = useLiveQuery(async () => (await sketchStore().getSketch(sketchId)) ?? null, [sketchId]);
-  const ideas = useLiveQuery(() => sketchStore().listIdeas(sketchId), [sketchId]);
+  const { state, refresh, keep } = useArrangement(sketchId);
   const project = useProjectStore((s) => s.project);
-  const loadProject = useProjectStore((s) => s.loadProject);
   const playing = usePlaybackStore((s) => s.isPlaying);
-  // The project store is app-wide, so remember which Sketch it was loaded for.
-  const [loadedFor, setLoadedFor] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!sketch || !ideas || loadedFor === sketchId) return;
-    loadProject(sketchToProject(sketch, ideas));
-    setLoadedFor(sketchId); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [sketch, ideas, sketchId, loadedFor, loadProject]);
+  const sketch = state.status === "ready" ? state.sketch : undefined;
 
   useEffect(() => () => stopProject(), []);
 
-  if (sketch === null) {
+  if (state.status === "missing") {
     return (
       <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-8">
         <h1 className="text-2xl font-semibold text-ink">This sketch isn&apos;t here</h1>
@@ -53,7 +41,25 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
         </Link>
         <h1 className="text-2xl font-semibold text-ink">{sketch?.title ?? "Studio"}</h1>
       </header>
-      {project && loadedFor === sketchId && (
+      {state.status === "error" && (
+        <p role="alert" className="text-sm text-accent">
+          {state.message}
+        </p>
+      )}
+      {state.status === "ready" && state.stale.length > 0 && (
+        <div role="status" className="flex flex-wrap items-center gap-3 rounded-2xl bg-surface p-3">
+          <p className="flex-1 text-sm text-ink">
+            {state.stale.length === 1 ? "A hum has" : `${state.stale.length} hums have`} new notes since you last opened the studio.
+          </p>
+          <Button variant="secondary" onClick={() => refresh(state.stale)}>
+            Use new notes
+          </Button>
+          <Button variant="ghost" onClick={() => keep(state.stale)}>
+            Keep mine
+          </Button>
+        </div>
+      )}
+      {project && state.status === "ready" && (
         <>
           <div className="flex items-center gap-3">
             <Button onClick={() => (playing ? stopProject() : void playProject(project))}>

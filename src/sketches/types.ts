@@ -1,5 +1,6 @@
 import type { LinkProvider } from "@/links/parseLink";
 import type { Take, Transcription } from "@/melody/types";
+import type { Project } from "@/studio/types";
 
 export type Sketch = {
   id: string;
@@ -58,3 +59,14 @@ export type Idea = IdeaInput & {
 };
 
 export type VoiceIdea = Extract<Idea, { kind: "voice" }>;
+
+/** A Sketch's studio arrangement, saved whenever the studio changes it. One per Sketch. */
+export type Arrangement = {
+  sketchId: string;
+  project: Project;
+  /** Each hum's notes as they were when its track was made, by voice Idea id, so a newer transcription can be offered. */
+  heard: Record<string, string>;
+  savedAt: number;
+};
+
+export type ArrangementInput = Pick<Arrangement, "project" | "heard">;
