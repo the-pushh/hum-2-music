@@ -7,6 +7,8 @@ import { useArrangement } from "@/studio/useArrangement";
 import { useProjectStore } from "@/studio/store/project";
 import { stopProject } from "@/studio/transport";
 import { Button } from "../Button";
+import { DrumGrid } from "./DrumGrid";
+import { PianoRoll } from "./PianoRoll";
 import { TrackList } from "./TrackList";
 import { TransportBar } from "./TransportBar";
 
@@ -87,8 +89,9 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
             )}
             <TrackList selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
             {selected && (
-              <section aria-label={`Edit ${selected.name}`} className="rounded-2xl bg-surface p-3">
+              <section aria-label={`Edit ${selected.name}`} className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
                 <h2 className="text-base font-semibold text-ink">{selected.name}</h2>
+                {selected.type === "drum" ? <DrumGrid track={selected} /> : <PianoRoll track={selected} />}
               </section>
             )}
           </>

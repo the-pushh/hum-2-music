@@ -5,10 +5,11 @@ import { startedPlaying, stoppedPlaying } from "@/audio/exclusivePlayback";
 import { tone } from "@/audio/tone";
 import { audioEngine } from "./audio/engine";
 import { playoutManager } from "./audio/playout";
-import { projectEndBar } from "./audio/scheduler";
+import { createSynthForTrack, projectEndBar, trackVoiceKey } from "./audio/scheduler";
+import { waitForSynthReady, type ResolvedInstrument } from "./audio/synth-presets";
 import { usePlaybackStore } from "./store/playback";
 import { useProjectStore } from "./store/project";
-import type { Project } from "./types";
+import type { Project, Track } from "./types";
 
 /** Bars the transport covers even when the arrangement is shorter, so an empty studio still has a grid. */
 export const minBars = 4;
@@ -94,4 +95,26 @@ function follow() {
 /** Where the playhead is, in bars from the start. */
 export function playheadBars(): number {
   return audioEngine.isReady() ? audioEngine.getCurrentBar() : 0;
+}
+
+const previewVoices = new Map<string, ResolvedInstrument>();
+
+/** Sounds one note on a track's own instrument, through its mixer, as an edit happens. Call it from a tap. */
+export async function previewNote(track: Track, pitch: number, beats = 0.5): Promise<void> {
+  await tone();
+  await playoutManager.initialize();
+  const input = playoutManager.getTrackInput(track);
+  if (!input) return;
+  const key = trackVoiceKey(track);
+  let voice = previewVoices.get(key);
+  if (!voice) {
+    voice = createSynthForTrack(track);
+    voice.output.connect(input);
+    previewVoices.set(key, voice);
+  }
+  await waitForSynthReady(voice.synth);
+  const seconds = (beats * 60) / (useProjectStore.getState().project?.bpm ?? 90);
+  const time = Tone.now();
+  if (voice.synth instanceof Tone.NoiseSynth) voice.synth.triggerAttackRelease(seconds, time, 0.8);
+  else voice.synth.triggerAttackRelease(Tone.Frequency(pitch, "midi").toFrequency(), seconds, time, 0.8);
 }
