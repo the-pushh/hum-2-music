@@ -156,6 +156,36 @@ describe("sketch store", () => {
     });
   });
 
+  describe("instrument choice", () => {
+    it("has no instrument choice until one is made", async () => {
+      const store = freshStore();
+      const audio = new Blob([new Uint8Array([1])], { type: "audio/mp4" });
+      const { idea } = await store.capture(null, { kind: "voice", blob: audio, mime: "audio/mp4", durationSec: 2, peaks: [] });
+      const read = await store.getIdea(idea.id);
+      expect(read?.kind === "voice" && read.instrument).toBeUndefined();
+    });
+
+    it("saves and changes a melody's instrument, moving its sketch to the top", async () => {
+      const store = freshStore();
+      const audio = new Blob([new Uint8Array([1])], { type: "audio/mp4" });
+      const { sketch, idea } = await store.capture(null, { kind: "voice", blob: audio, mime: "audio/mp4", durationSec: 2, peaks: [] });
+      await store.createSketch("Newer");
+
+      await store.setInstrument(idea.id, "strings");
+      await store.setInstrument(idea.id, "bass");
+
+      const read = await store.getIdea(idea.id);
+      expect(read?.kind === "voice" && read.instrument).toBe("bass");
+      expect((await store.listSketches())[0].id).toBe(sketch.id);
+    });
+
+    it("refuses an instrument for an idea that isn't a voice idea", async () => {
+      const store = freshStore();
+      const { idea } = await store.capture(null, { kind: "note", text: "hm" });
+      await expect(store.setInstrument(idea.id, "piano")).rejects.toThrow(/not voice/);
+    });
+  });
+
   it("saves edits to a lyrics idea and moves its sketch to the top", async () => {
     const store = freshStore();
     const { sketch, idea } = await store.capture(null, { kind: "lyrics", doc: { type: "doc", content: [] } });
