@@ -2,13 +2,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { GridFour, MusicNotes, PencilSimple, TextAa } from "@phosphor-icons/react";
-import { emptyLyrics } from "@/lyrics/doc";
+import { GridFour, MusicNotes, TextAa } from "@phosphor-icons/react";
 import { hearBeatIdea } from "@/beat/client";
 import { isBeat, transcribeIdea } from "@/melody/client";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
 import { beatBg, ideaBg } from "@/ui/ideaColors";
+import { LyricsNote } from "./LyricsNote";
 import { Recorder } from "./Recorder";
 
 type Props = {
@@ -61,11 +61,6 @@ export function CaptureBar({ openSketchId }: Props) {
     if (stillMounted && !openSketchId) router.push(`/s/${sketch.id}`);
   }
 
-  async function writeLyrics() {
-    const { sketch, idea } = await captureIdea(openSketchId, { kind: "lyrics", doc: emptyLyrics() });
-    router.push(`/s/${sketch.id}/lyrics/${idea.id}`);
-  }
-
   return (
     <section aria-label="Capture" className="flex w-full flex-col items-center gap-6">
       <div role="group" aria-label="What to capture" className="grid w-full grid-cols-3 gap-1 rounded-full bg-surface p-1">
@@ -86,17 +81,7 @@ export function CaptureBar({ openSketchId }: Props) {
         ))}
       </div>
       {section === "lyrics" ? (
-        <div className="flex flex-col items-center gap-3">
-          <button
-            type="button"
-            onClick={() => void writeLyrics()}
-            className={`inline-flex size-24 items-center justify-center rounded-full text-canvas transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink ${ideaBg.lyrics}`}
-          >
-            <PencilSimple size={32} weight="fill" aria-hidden />
-            <span className="sr-only">Write lyrics</span>
-          </button>
-          <p className="text-sm text-ink-muted">Tap to write lyrics</p>
-        </div>
+        <LyricsNote openSketchId={openSketchId} />
       ) : (
         <Recorder mode={section} onSave={save} onBusyChange={setRecording} />
       )}

@@ -20,3 +20,18 @@ export function lyricsLines(doc: LyricsDoc): string[] {
       : [text(node)],
   );
 }
+
+/** Lines typed as plain text, as a lyrics doc: one verse, one line per line. Empty lines stay as empty lines. */
+export function lyricsFromText(text: string): LyricsDoc {
+  const lines = text.split("\n");
+  return {
+    type: "doc",
+    content: [
+      {
+        type: "section",
+        attrs: { part: "verse" },
+        content: lines.map((line) => (line ? { type: "paragraph", content: [{ type: "text", text: line }] } : { type: "paragraph" })),
+      },
+    ],
+  };
+}
