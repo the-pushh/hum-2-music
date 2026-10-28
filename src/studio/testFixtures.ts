@@ -129,6 +129,7 @@ export function makeFullProject(overrides: Partial<Project> = {}): Required<Proj
         timeSignature: [7, 8],
         latencyOffset: 8,
         swing: 55,
+        style: { drums: 'half-time', chords: 'sevenths', chordRhythm: 'pulsing', bass: 'walking', energy: 'high' },
         tracks: [makeTrack()],
         clips: [makeClip()],
         createdAt: 1_700_000_000_000,

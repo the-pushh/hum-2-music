@@ -7,6 +7,7 @@ import { useArrangement } from "@/studio/useArrangement";
 import { useProjectStore } from "@/studio/store/project";
 import { stopProject } from "@/studio/transport";
 import { Button } from "../Button";
+import { DescribeBox } from "./DescribeBox";
 import { DrumGrid } from "./DrumGrid";
 import { FloatingTransport } from "./FloatingTransport";
 import { PianoRoll } from "./PianoRoll";
@@ -75,6 +76,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
       ) : (
         <>
           <Timeline title={sketch?.title ?? "Studio"} selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
+          <DescribeBox />
           {!project.clips.length && (
             <p className="px-2 text-sm text-ink-muted">
               Nothing in this sketch has been heard yet. Record a melody or a beat on the sketch page, or tap a track to write notes yourself.

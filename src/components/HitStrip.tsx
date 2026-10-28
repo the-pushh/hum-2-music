@@ -26,6 +26,8 @@ export function HitStrip({ hits, label }: { hits: Note[]; label: string }) {
       const length = Math.max(...hits.map((h) => h.start + h.duration));
       const rowHeight = height / rows.length;
       const size = Math.min(8, rowHeight - 4);
+      // Not laid out yet (a hidden or collapsed card): nothing to draw, and roundRect throws on a negative size.
+      if (size <= 0) return;
       const ink = tokenColor("canvas");
       // Faint row lines, so a missing drum still reads as a row.
       ctx.fillStyle = `${ink}26`;

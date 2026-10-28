@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { scalePitchClasses } from "@/studio/music";
-import { generateChords, type MelodyNote } from "./chords";
+import { chordPart, generateChords, type Chord, type MelodyNote } from "./chords";
 import type { Plan } from "./plan";
+import { defaultStyle } from "./style";
 
-const cMajor: Plan = { bpm: 90, key: "C", scale: "major", beatsPerBar: 4, bars: 4 };
+const cMajor: Plan = { bpm: 90, key: "C", scale: "major", beatsPerBar: 4, bars: 4, style: defaultStyle };
 const aMinor: Plan = { ...cMajor, key: "A", scale: "minor" };
 
 /** Quarter notes from beat 0, with optional longer notes as [pitch, beats]. */
@@ -67,3 +68,75 @@ describe("chords for a melody", () => {
     expect(generateChords(aMinor, []).map((c) => c.numeral)).toEqual(["i", "i", "i", "i"]);
   });
 });
+
+describe("chord colour", () => {
+  const sevenths: Plan = { ...cMajor, style: { ...defaultStyle, chords: "sevenths" } };
+
+  it("adds each chord's diatonic seventh: Cmaj7, Fmaj7, G7 in C major", () => {
+    const tune = melody(C4, E4, G4, E4, F4, A4, C5, A4, G4, B4, D5, B4, [C5, 4]);
+    expect(generateChords(sevenths, tune).map((c) => c.pitches)).toEqual([
+      [60, 64, 67, 71],
+      [53, 57, 60, 64],
+      [55, 59, 62, 65],
+      [60, 64, 67, 71],
+    ]);
+  });
+
+  it("gives a minor key's raised V a dominant seventh", () => {
+    const Gs4 = 68;
+    const tune = melody([A4, 4], [Gs4, 2], [B4, 2], [A4, 4]);
+    const v = generateChords({ ...aMinor, bars: 3, style: sevenths.style }, tune)[1];
+    expect(v.numeral).toBe("V");
+    expect(v.pitches.map((p) => p % 12)).toEqual([4, 8, 11, 2]); // E G# B D
+  });
+});
+
+describe("the chords part", () => {
+  const two: Chord[] = [
+    { bar: 0, numeral: "I", root: 0, pitches: [60, 64, 67] },
+    { bar: 1, numeral: "IV", root: 5, pitches: [53, 57, 60] },
+  ];
+  const at = (style: Partial<Plan["style"]>) =>
+    chordPart({ ...cMajor, bars: 2, style: { ...defaultStyle, ...style } }, two).map((n) => [n.pitch, n.startBeat, n.duration, n.velocity]);
+
+  it("holds each chord for its bar by default", () => {
+    expect(at({})).toEqual([
+      [60, 0, 4, 80],
+      [64, 0, 4, 80],
+      [67, 0, 4, 80],
+      [53, 4, 4, 80],
+      [57, 4, 4, 80],
+      [60, 4, 4, 80],
+    ]);
+  });
+
+  it("pulses on every beat, a little short of the next", () => {
+    const pulses = at({ chordRhythm: "pulsing" }).filter(([pitch]) => pitch === 60);
+    expect(pulses.map(([, start, duration]) => [start, duration])).toEqual([
+      [0, 0.75],
+      [1, 0.75],
+      [2, 0.75],
+      [3, 0.75],
+      [4, 0.75],
+      [5, 0.75],
+      [6, 0.75],
+      [7, 0.75],
+    ]);
+  });
+
+  it("pulses on eighths at high energy", () => {
+    const pulses = at({ chordRhythm: "pulsing", energy: "high" }).filter(([pitch, start]) => pitch === 64 && start < 4);
+    expect(pulses.map(([, start]) => start)).toEqual([0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5]);
+  });
+
+  it("plays softer at low energy and harder at high", () => {
+    const velocityAt = (energy: Plan["style"]["energy"]) => at({ energy })[0][3];
+    expect(velocityAt("low")).toBeLessThan(velocityAt("medium"));
+    expect(velocityAt("high")).toBeGreaterThan(velocityAt("medium"));
+  });
+
+  it("writes nothing when the chords are none", () => {
+    expect(at({ chords: "none" })).toEqual([]);
+  });
+});
+

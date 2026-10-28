@@ -4,6 +4,8 @@
 // ComposeYogi — Core Type Definitions
 // ============================================
 
+import type { Style } from '@/studio/generate/style';
+
 // Track roles and drum families, moved here from ComposeYogi's design tokens (hum has its own tokens).
 export const TRACK_ROLES = ['drums', 'bass', 'keys', 'melody', 'vocals', 'fx'] as const;
 export type TrackRole = (typeof TRACK_ROLES)[number];
@@ -34,6 +36,8 @@ export interface Project {
      * A clip's Groove macro adds to this — see effectiveGroove in clip-macros.
      */
     swing?: number;
+    /** hum: how the generated parts play. Absent means the default Style, so older arrangements sound the same. */
+    style?: Style;
 }
 
 export type MusicalKey = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Clip, Note, Project, Track } from "@/studio/types";
-import { withGeneratedParts } from "./parts";
+import { withGeneratedParts, withStyle } from "./parts";
 
 const melodyTrack: Track = {
   id: "hum",
@@ -141,5 +141,38 @@ describe("generating parts", () => {
   it("gives the same parts every time", () => {
     const strip = (p: Project) => p.tracks.map((t) => [t.name, notesOn(p, t)]);
     expect(strip(withGeneratedParts(project))).toEqual(strip(withGeneratedParts(project)));
+  });
+});
+
+describe("changing the style", () => {
+  const drumsOf = (p: Project) => notesOn(p, p.tracks.find((t) => t.name === "Drums")!).map(([pitch, start]) => [pitch, start]);
+
+  it("rewrites generated drums in the new feel and keeps the melody", () => {
+    const generated = withGeneratedParts(project);
+    const fourOnTheFloor = withStyle(generated, { drums: "four-on-the-floor" });
+    expect(fourOnTheFloor.style?.drums).toBe("four-on-the-floor");
+    expect(drumsOf(fourOnTheFloor).filter(([pitch]) => pitch === 36).map(([, start]) => start)).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
+    expect(notesOn(fourOnTheFloor, melodyTrack)).toEqual(notesOn(generated, melodyTrack));
+  });
+
+  it("removes generated drums when the feel is none, keeping the other parts", () => {
+    const none = withStyle(withGeneratedParts(project), { drums: "none" });
+    expect(none.tracks.map((t) => t.name)).toEqual(["Hum 1", "Chords", "Bass"]);
+  });
+
+  it("leaves out the chords or bass track when either is none, keeping the bass under the chords it can't hear", () => {
+    const generated = withGeneratedParts(project);
+    const bassOf = (p: Project) => notesOn(p, p.tracks.find((t) => t.name === "Bass")!);
+    const noChords = withStyle(generated, { chords: "none" });
+    expect(noChords.tracks.map((t) => t.name)).toEqual(["Hum 1", "Bass", "Drums"]);
+    expect(bassOf(noChords)).toEqual(bassOf(generated));
+    expect(withStyle(withGeneratedParts(project), { bass: "none" }).tracks.map((t) => t.name)).toEqual(["Hum 1", "Chords", "Drums"]);
+  });
+
+  it("only saves the style when nothing has been generated yet", () => {
+    const styled = withStyle(project, { drums: "half-time" });
+    expect(styled.tracks).toEqual(project.tracks);
+    expect(styled.clips).toEqual(project.clips);
+    expect(styled.style).toMatchObject({ drums: "half-time", chords: "triads" });
   });
 });
