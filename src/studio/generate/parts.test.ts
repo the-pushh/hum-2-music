@@ -110,6 +110,34 @@ describe("generating parts", () => {
     expect(next.clips.find((c) => c.trackId === part("Drums").id)).toMatchObject({ type: "drum", lengthBars: 2 });
   });
 
+  it("keeps a hummed beat as the drums, still writing chords and bass for the melody", () => {
+    const beatTrack: Track = { ...melodyTrack, id: "beat", name: "Beat 1", type: "drum", color: "drums", instrumentPreset: "hum-drums", order: 1, origin: { kind: "hum", ideaId: "beat" } };
+    const beatClip: Clip = { id: "beat-clip", trackId: "beat", type: "drum", name: "Beat", startBar: 0, lengthBars: 1, notes: [quarter(36, 0), quarter(38, 1)] };
+    const withBeat = { ...project, tracks: [melodyTrack, beatTrack], clips: [melodyClip, beatClip] };
+
+    const next = withGeneratedParts(withGeneratedParts(withBeat));
+    expect(next.tracks.map((t) => t.name)).toEqual(["Hum 1", "Beat 1", "Chords", "Bass"]);
+    expect(notesOn(next, beatTrack)).toEqual(notesOn(withBeat, beatTrack));
+  });
+
+  it("drops generated drums made before a beat was hummed", () => {
+    const generated = withGeneratedParts(project);
+    const beatTrack: Track = { ...melodyTrack, id: "beat", name: "Beat 1", type: "drum", color: "drums", instrumentPreset: "hum-drums", order: 9, origin: { kind: "hum", ideaId: "beat" } };
+    const next = withGeneratedParts({ ...generated, tracks: [...generated.tracks, beatTrack] });
+    expect(next.tracks.filter((t) => t.type === "drum").map((t) => t.name)).toEqual(["Beat 1"]);
+  });
+
+  it("follows a hummed melody played as keys", () => {
+    const asKeys = { ...project, tracks: [{ ...melodyTrack, color: "keys" as const, instrumentPreset: "hum-electric-piano" }] };
+    const chordsOf = (p: Project) => notesOn(withGeneratedParts(p), withGeneratedParts(p).tracks.find((t) => t.name === "Chords")!);
+    expect(chordsOf(asKeys)).toEqual(chordsOf(project));
+  });
+
+  it("writes only drums for an arrangement with no melody", () => {
+    const empty = { ...project, clips: [] };
+    expect(withGeneratedParts(empty).tracks.map((t) => t.name)).toEqual(["Hum 1", "Drums"]);
+  });
+
   it("gives the same parts every time", () => {
     const strip = (p: Project) => p.tracks.map((t) => [t.name, notesOn(p, t)]);
     expect(strip(withGeneratedParts(project))).toEqual(strip(withGeneratedParts(project)));

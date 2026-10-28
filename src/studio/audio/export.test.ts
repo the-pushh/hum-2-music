@@ -102,4 +102,20 @@ describe("MIDI export", () => {
     expect(midi.tracks[2].instrument.percussion).toBe(true);
     expect(midi.tracks.slice(0, 2).map((t) => t.channel)).not.toContain(9);
   });
+
+  it("gives each hum the General MIDI program of the instrument it plays as", () => {
+    const strings = { ...track("Melody", "midi", "melody"), instrumentPreset: "hum-strings" };
+    const bass = { ...track("Chords", "midi", "bass"), instrumentPreset: "hum-bass" };
+    const midi = roundTrip({ ...project, tracks: [strings, bass, ...project.tracks.slice(2)] });
+    expect(midi.tracks[0].instrument.number).toBe(48);
+    expect(midi.tracks[1].instrument.number).toBe(33);
+  });
+
+  it("gives generated chords and bass the nearest General MIDI program", () => {
+    const pad = { ...track("Melody", "midi", "keys"), instrumentPreset: "warm-pad" };
+    const bass = { ...track("Chords", "midi", "bass"), instrumentPreset: "synth-bass" };
+    const midi = roundTrip({ ...project, tracks: [pad, bass, ...project.tracks.slice(2)] });
+    expect(midi.tracks[0].instrument.number).toBe(89);
+    expect(midi.tracks[1].instrument.number).toBe(38);
+  });
 });

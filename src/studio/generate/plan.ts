@@ -15,10 +15,15 @@ export type MelodyNote = { pitch: number; startBeat: number; duration: number };
 /** Bars a Plan covers when there's no melody to measure. */
 const emptyBars = 4;
 
-/** Every note on the arrangement's melody tracks, in beats from the start. */
+/**
+ * Every note on the arrangement's melody tracks, in beats from the start: tracks in the melody role, and hummed
+ * melodies played as any instrument except bass (a hummed bass line is a bass part, not a tune to harmonize).
+ */
 export function melodyOf(project: Project): MelodyNote[] {
   const beatsPerBar = project.timeSignature[0];
-  const melodyTracks = new Set(project.tracks.filter((t) => t.color === "melody").map((t) => t.id));
+  const isMelody = (t: Project["tracks"][number]) =>
+    t.color === "melody" || (t.origin?.kind === "hum" && t.type === "midi" && t.color !== "bass");
+  const melodyTracks = new Set(project.tracks.filter(isMelody).map((t) => t.id));
   return project.clips
     .filter((c) => melodyTracks.has(c.trackId))
     .flatMap((c) =>

@@ -5,9 +5,12 @@ The words hum's code and issues use, and what they mean here.
 ## Capture
 
 - **Sketch**: one song idea in progress: a title and the Ideas collected for it. Captured with no Sketch open, an Idea starts a new one.
-- **Idea**: one thing captured into a Sketch: a voice hum, lyrics or an image. Sketches from before 28 Oct 2026 may also hold links, colors and notes, which still show but can no longer be added. Ideas keep the order the songwriter gives them.
-- **Take**: how a hum was recorded: its tempo, whether a click played, and the key chosen beforehand, if any. Hums without a click are measured at the reference tempo, 90 BPM.
-- **Transcription**: the notes hum heard in a hum: pending, failed, or done with raw notes, cleaned-up notes, a key and the cleanup settings.
+- **Idea**: one thing captured into a Sketch: lyrics, or a voice take (a hummed melody or a beat). Sketches from before M4 may also hold images, links, colors and notes, which still show but can no longer be added. Ideas keep the order the songwriter gives them.
+- **Take**: how a voice Idea was recorded: its Take mode, its tempo, whether a click played, and the key chosen beforehand, if any. Takes without a click are measured at the reference tempo, 90 BPM.
+- **Take mode**: what a take is of: a **melody** (hummed or sung) or a **beat**. Takes from before M4 are melodies.
+- **Beat**: a take of a vocalized drum beat (beatbox). hum hears it as kick, snare and hi-hat hits, not pitches.
+- **Transcription**: what hum heard in a voice take: pending, failed, or done. A melody's has raw notes, cleaned-up notes, a key and the cleanup settings; a beat's has raw hits, snapped hits (kick 36, snare 38, hi-hat 42) and the grid.
+- **Instrument choice**: what a melody take plays as (piano, keys, strings, bass…), picked on its card after its notes are heard. No choice plays as piano.
 - **Note**: a pitch (MIDI number) with a start and a length in beats. Hums store velocity as 0–1; the studio as MIDI's 1–127.
 
 ## Studio

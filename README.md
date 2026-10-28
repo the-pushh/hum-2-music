@@ -65,3 +65,12 @@ stop it (Ctrl+C) when you're done.
 - Undo and redo each edit. Reload the page: everything is still there.
 - Tap **Export MIDI**, then open the file in another DAW (GarageBand, Logic, Ableton…): one track per part, drums
   on the drum channel, the right tempo.
+
+## Sound credits
+
+hum's instruments are played by [smplr](https://github.com/danigb/smplr) (MIT) from these sample sets:
+
+- Electric piano: [Greg Sullivan's E-Pianos](https://github.com/sfzinstruments/GregSullivan.E-Pianos), CC BY 3.0.
+- Strings, bass, guitar, synth, pad, flute and brass: the FluidR3_GM soundfont by Frank Wen, from [gleitz/midi-js-soundfonts](https://github.com/gleitz/midi-js-soundfonts), CC BY 3.0.
+
+See `docs/adr/0002-instrument-sounds.md` for why these.

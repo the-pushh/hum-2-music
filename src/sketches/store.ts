@@ -1,4 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
+import type { InstrumentId } from "@/instruments/instruments";
 import type { Transcription } from "@/melody/types";
 import type { Arrangement, ArrangementInput, Idea, IdeaInput, Sketch, VoiceIdea } from "./types";
 
@@ -97,6 +98,18 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
+  /** Sets what a melody plays as. A songwriter's choice, so the sketch moves to the top of the list. */
+  async function setInstrument(id: string, instrument: InstrumentId): Promise<void> {
+    await db.transaction("rw", db.sketches, db.ideas, async () => {
+      const idea = await db.ideas.get(id);
+      if (!idea) throw new Error(`Idea ${id} not found`);
+      if (idea.kind !== "voice") throw new Error(`Idea ${id} is ${idea.kind}, not voice`);
+      const voice: VoiceIdea = { ...idea, instrument };
+      await db.ideas.put(voice);
+      await db.sketches.update(idea.sketchId, { updatedAt: now() });
+    });
+  }
+
   /** Moves an idea to a position in its sketch (clamped to the ends) and renumbers the rest 0..n-1. */
   async function moveIdea(id: string, toIndex: number): Promise<void> {
     await db.transaction("rw", db.sketches, db.ideas, async () => {
@@ -138,7 +151,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, moveIdea, removeIdea, capture, getArrangement, saveArrangement };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, removeIdea, capture, getArrangement, saveArrangement };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

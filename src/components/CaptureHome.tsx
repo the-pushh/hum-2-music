@@ -34,7 +34,7 @@ export function CaptureHome() {
           <div className="rounded-2xl bg-surface p-6">
             <p className="text-base text-ink">No sketches yet.</p>
             <p className="text-sm text-ink-muted">
-              Record a hum or save a note above and hum starts a sketch for it. Everything you add later collects there.
+              Write lyrics, hum a melody or beatbox a beat above, and hum starts a sketch for it. Everything you add later collects there.
             </p>
           </div>
         ) : (

@@ -1,3 +1,4 @@
+import type { InstrumentId } from "@/instruments/instruments";
 import type { Take, Transcription } from "@/melody/types";
 import type { Project } from "@/studio/types";
 
@@ -22,6 +23,8 @@ export type VoiceInput = {
   take?: Take;
   /** The notes hum heard in the take. Missing until it has been transcribed. */
   transcription?: Transcription;
+  /** What a melody plays as. Missing until the songwriter picks one, which plays as piano. */
+  instrument?: InstrumentId;
 };
 
 /** A rich-text document as the lyrics editor saves it (Tiptap/ProseMirror JSON). */
@@ -29,7 +32,7 @@ export type LyricsDoc = { type: "doc"; content?: unknown[] };
 
 export type LyricsInput = { kind: "lyrics"; doc: LyricsDoc };
 
-/** A picture for the moodboard, stored as-is or scaled down (see prepareImage). */
+/** A picture for the moodboard, stored as-is or scaled down. */
 export type ImageInput = { kind: "image"; blob: Blob; w: number; h: number };
 
 /** Where a saved link points. Links can no longer be captured, but sketches from M1 still hold them. */

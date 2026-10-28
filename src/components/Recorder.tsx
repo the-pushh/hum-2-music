@@ -11,7 +11,7 @@ import { formatDuration } from "@/audio/formatDuration";
 import { diagnoseMicFailure } from "@/audio/micErrorMessage";
 import { pickRecordingMime } from "@/audio/recordingFormat";
 import { waveformBars } from "@/audio/waveformStyle";
-import { referenceBpm, type Take } from "@/melody/types";
+import { referenceBpm, type Take, type TakeMode } from "@/melody/types";
 import { tokenColor } from "@/ui/tokenColor";
 import type { VoiceInput } from "@/sketches/types";
 import { PitchLine } from "./PitchLine";
@@ -19,18 +19,30 @@ import { TakeOptionsBar, useTakeOptions } from "./TakeOptions";
 
 type Status = "idle" | "starting" | "counting" | "recording" | "saving";
 type Props = {
-  /** Saves the hum. `stillMounted` is false when the recorder was closed mid-take, so callers can skip navigation. */
+  /** A hummed melody, or a vocalized beat. */
+  mode: TakeMode;
+  /** Saves the take. `stillMounted` is false when the recorder was closed mid-take, so callers can skip navigation. */
   onSave: (voice: VoiceInput, stillMounted: boolean) => Promise<void>;
+  /** Told when a take starts and when it's done, so the mode can't change mid-take. */
+  onBusyChange?: (busy: boolean) => void;
 };
 
-const statusText: Record<Exclude<Status, "counting">, string> = {
-  idle: "Tap to hum an idea",
-  starting: "Starting the mic",
-  recording: "Recording, tap to stop and save",
-  saving: "Saving your hum",
+const statusText: Record<TakeMode, Record<Exclude<Status, "counting">, string>> = {
+  melody: {
+    idle: "Tap to hum a melody",
+    starting: "Starting the mic",
+    recording: "Recording a melody, tap to stop and save",
+    saving: "Saving your hum",
+  },
+  beat: {
+    idle: "Tap to beatbox a beat",
+    starting: "Starting the mic",
+    recording: "Recording a beat, tap to stop and save",
+    saving: "Saving your beat",
+  },
 };
 
-export function Recorder({ onSave }: Props) {
+export function Recorder({ mode, onSave, onBusyChange }: Props) {
   const waveRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
   const recordRef = useRef<RecordPlugin | null>(null);
@@ -47,7 +59,10 @@ export function Recorder({ onSave }: Props) {
   const [countBeat, setCountBeat] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [options, changeOptions] = useTakeOptions();
+  const [options, changeOptions] = useTakeOptions(mode);
+  const busy = status !== "idle";
+
+  useEffect(() => onBusyChange?.(busy), [busy, onBusyChange]);
 
   // Phones suspend a hidden page (screen lock, app switch) and may never deliver the recorder's final data.
   // Save what's been recorded so far as soon as the page is hidden. A count-in with nothing recorded yet is cancelled.
@@ -120,9 +135,10 @@ export function Recorder({ onSave }: Props) {
     wsRef.current = ws;
     recordRef.current = record;
     takeRef.current = {
+      mode,
       bpm: options.click ? options.bpm : referenceBpm,
       click: options.click,
-      ...(options.key && { key: options.key }),
+      ...(mode === "melody" && options.key && { key: options.key }),
     };
     record.on("record-progress", (ms) => {
       elapsedRef.current = ms / 1000;
@@ -207,7 +223,7 @@ export function Recorder({ onSave }: Props) {
     try {
       await onSave({ kind: "voice", blob, mime, ...analysis, take: takeRef.current }, mountedRef.current);
     } catch {
-      if (mountedRef.current) setError("The hum couldn't be saved to this browser's storage. Try recording again.");
+      if (mountedRef.current) setError(`The ${mode === "melody" ? "hum" : "beat"} couldn't be saved to this browser's storage. Try recording again.`);
     } finally {
       savingRef.current = false;
       if (mountedRef.current) setStatus("idle");
@@ -215,18 +231,19 @@ export function Recorder({ onSave }: Props) {
   }
 
   const live = status === "recording" || status === "starting" || status === "counting";
-  const label = status === "counting" ? (countBeat ? `Counting in, ${countBeat}` : "Counting in") : statusText[status];
+  const label = status === "counting" ? (countBeat ? `Counting in, ${countBeat}` : "Counting in") : statusText[mode][status];
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
       <div className={`flex w-full items-center gap-3 rounded-2xl bg-surface p-3 ${live ? "" : "hidden"}`}>
         <span className="font-mono text-sm text-ink tabular-nums">{formatDuration(elapsed)}</span>
         <div className="relative h-24 flex-1 overflow-hidden rounded-sm">
-          <PitchLine stream={stream} songKey={options.key} />
-          <div ref={waveRef} className="absolute inset-x-0 bottom-0 h-12 opacity-50" aria-hidden />
+          {/* A beat has no pitch to draw, so its waveform fills the space instead. */}
+          {mode === "melody" && <PitchLine stream={stream} songKey={options.key} />}
+          <div ref={waveRef} className={`absolute inset-x-0 bottom-0 ${mode === "melody" ? "h-12 opacity-50" : "h-full"}`} aria-hidden />
         </div>
       </div>
-      {status === "idle" && <TakeOptionsBar options={options} onChange={changeOptions} />}
+      {status === "idle" && <TakeOptionsBar mode={mode} options={options} onChange={changeOptions} />}
       <button
         type="button"
         onClick={live ? stop : start}
@@ -235,7 +252,7 @@ export function Recorder({ onSave }: Props) {
         className="inline-flex size-24 items-center justify-center rounded-full bg-accent text-accent-ink transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink disabled:opacity-50"
       >
         {live ? <Stop size={32} weight="fill" aria-hidden /> : <Microphone size={32} weight="fill" aria-hidden />}
-        <span className="sr-only">{status === "counting" ? "Cancel counting in" : live ? "Stop and save recording" : "Record"}</span>
+        <span className="sr-only">{status === "counting" ? "Cancel counting in" : live ? "Stop and save recording" : mode === "melody" ? "Record a melody" : "Record a beat"}</span>
       </button>
       <p className="text-sm text-ink-muted" aria-live="polite">
         {label}

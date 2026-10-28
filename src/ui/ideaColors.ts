@@ -2,7 +2,7 @@ import type { Idea } from "@/sketches/types";
 
 /**
  * Each kind of idea has a bright color, the same family as the studio's track colors, with dark ink on it.
- * A hum is lime like the melody it becomes. Images and colors show themselves instead.
+ * A hum is lime like the melody it becomes; a beat is cyan like the drums. Images and colors show themselves instead.
  */
 export const ideaBg: Record<Exclude<Idea["kind"], "image" | "color">, string> = {
   voice: "bg-melody",
@@ -11,8 +11,8 @@ export const ideaBg: Record<Exclude<Idea["kind"], "image" | "color">, string> = 
   link: "bg-drums",
 };
 
-/** For the capture chips, including the kinds that have no card color of their own. */
-export const captureBg = { lyrics: ideaBg.lyrics, image: "bg-fx" } as const;
+/** A beat take's card, and the Beat capture section. */
+export const beatBg = "bg-drums";
 
 /** A round button sitting on a bright card: dark on the card's color. Pair with sr-only text. */
 export const onColorButton =

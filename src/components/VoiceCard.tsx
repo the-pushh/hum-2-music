@@ -8,12 +8,16 @@ import { formatDuration } from "@/audio/formatDuration";
 import { waveformBars } from "@/audio/waveformStyle";
 import { tokenColor } from "@/ui/tokenColor";
 import type { VoiceIdea } from "@/sketches/types";
-import { ideaBg, onColorButton } from "@/ui/ideaColors";
+import { isBeat } from "@/melody/client";
+import { beatBg, ideaBg, onColorButton } from "@/ui/ideaColors";
+import { BeatPanel } from "./BeatPanel";
 import { MelodyPanel } from "./MelodyPanel";
 
 const SEEK_STEP_SEC = 5;
 
+/** A recorded take: a hummed melody (lime) or a vocalized beat (cyan), with its waveform and what hum heard in it. */
 export function VoiceCard({ idea }: { idea: VoiceIdea }) {
+  const beat = isBeat(idea);
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
@@ -74,8 +78,8 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
   }
 
   return (
-    <article className={`flex flex-col gap-3 rounded-2xl p-3 text-canvas ${ideaBg.voice}`}>
-      <span className="px-1 text-xs font-semibold uppercase opacity-70">Hum</span>
+    <article className={`flex flex-col gap-3 rounded-2xl p-3 text-canvas ${beat ? beatBg : ideaBg.voice}`}>
+      <span className="px-1 text-xs font-semibold uppercase opacity-70">{beat ? "Beat" : "Hum"}</span>
       <div className="flex items-center gap-3">
         <button
           type="button"
@@ -84,7 +88,9 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
           className={onColorButton}
         >
           {isPlaying ? <Pause size={20} weight="fill" aria-hidden /> : <Play size={20} weight="fill" aria-hidden />}
-          <span className="sr-only">{isPlaying ? "Pause" : "Play"} hum</span>
+          <span className="sr-only">
+            {isPlaying ? "Pause" : "Play"} {beat ? "beat" : "hum"}
+          </span>
         </button>
         <div className="flex min-w-0 flex-1 flex-col gap-1">
           <div
@@ -110,7 +116,7 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
           )}
         </div>
       </div>
-      <MelodyPanel idea={idea} />
+      {beat ? <BeatPanel idea={idea} /> : <MelodyPanel idea={idea} />}
     </article>
   );
 }

@@ -21,11 +21,14 @@ const isGenerated = (t: Track) => t.origin?.kind === "generated";
  */
 export function withGeneratedParts(project: Project): Project {
   const plan = planFor(project);
-  const chords = generateChords(plan, melodyOf(project));
+  const melody = melodyOf(project);
+  // Chords and bass follow a melody, so there are none without one. A hummed beat is the drums, so none are generated over it.
+  const chords = melody.length ? generateChords(plan, melody) : [];
+  const hummedBeat = project.tracks.some((t) => t.origin?.kind === "hum" && t.type === "drum");
   const written: Record<Part, Note[]> = {
     chords: chords.flatMap((c) => c.pitches.map((pitch) => note({ pitch, startBeat: c.bar * plan.beatsPerBar, duration: plan.beatsPerBar, velocity: 80 }))),
-    bass: generateBass(plan, chords).map(note),
-    drums: generateDrums(plan).map(note),
+    bass: chords.length ? generateBass(plan, chords).map(note) : [],
+    drums: hummedBeat ? [] : generateDrums(plan).map(note),
   };
 
   const previous = (part: Part) => project.tracks.find((t) => t.origin?.kind === "generated" && t.origin.part === part);

@@ -10,7 +10,7 @@ import { Choice } from "./Choice";
 export function CleanupControls({ idea }: { idea: VoiceIdea }) {
   const [error, setError] = useState(false);
   const t = idea.transcription;
-  if (t?.status !== "done") return null;
+  if (t?.status !== "done" || t.kind === "beat") return null;
 
   function change(changes: Partial<CleanupSettings> & { showRaw?: boolean }) {
     setError(false);
@@ -52,7 +52,7 @@ export function CleanupControls({ idea }: { idea: VoiceIdea }) {
       )}
       {error && (
         <span role="alert" className="text-xs font-semibold">
-          Couldn&apos;t save that change.
+          Couldn&apos;t save that change. Try again.
         </span>
       )}
     </div>
