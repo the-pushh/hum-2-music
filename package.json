@@ -17,6 +17,8 @@
     "@dnd-kit/sortable": "^10.0.0",
     "@dnd-kit/utilities": "^3.2.2",
     "@phosphor-icons/react": "^2.1.10",
+    "@spotify/basic-pitch": "^1.0.1",
+    "@tensorflow/tfjs": "^3.21.0",
     "@tiptap/pm": "^3.32.0",
     "@tiptap/react": "^3.32.0",
     "@tiptap/starter-kit": "^3.32.0",
@@ -27,10 +29,13 @@
     "masonic": "^4.1.0",
     "next": "16.4.3",
     "open-graph-scraper": "^6.12.0",
+    "pitchy": "^4.1.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-player": "^3.4.0",
+    "smplr": "^1.1.0",
     "syllable": "^5.0.1",
+    "tone": "^15.1.22",
     "wavesurfer.js": "^8.0.3"
   },
   "devDependencies": {

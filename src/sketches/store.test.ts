@@ -100,6 +100,50 @@ describe("sketch store", () => {
     expect(new Uint8Array(await idea.blob.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]));
   });
 
+  describe("transcription", () => {
+    async function voiceIdea(store: ReturnType<typeof freshStore>) {
+      const audio = new Blob([new Uint8Array([9, 8, 7])], { type: "audio/mp4" });
+      const { idea } = await store.capture(null, { kind: "voice", blob: audio, mime: "audio/mp4", durationSec: 4, peaks: [0.2, 0.6] });
+      return idea;
+    }
+
+    it("reads a voice idea from before transcription as not transcribed yet", async () => {
+      const store = freshStore();
+      const idea = await voiceIdea(store);
+      const read = await store.getIdea(idea.id);
+      expect(read?.kind === "voice" && read.transcription).toBeUndefined();
+    });
+
+    it("saves a transcription and reads it back, leaving the audio untouched", async () => {
+      const store = freshStore();
+      const idea = await voiceIdea(store);
+      await store.setTranscription(idea.id, { status: "pending" });
+      const done = {
+        status: "done" as const,
+        raw: [{ pitch: 59.7, start: 0.02, duration: 0.9, velocity: 0.7 }],
+        clean: [{ pitch: 60, start: 0, duration: 1, velocity: 0.7 }],
+        key: { tonic: 0, mode: "major" as const },
+        settings: { key: "auto" as const, snap: true, grid: 8 as const },
+        showRaw: false,
+      };
+      await store.setTranscription(idea.id, done);
+
+      const read = await store.getIdea(idea.id);
+      if (read?.kind !== "voice") throw new Error("expected a voice idea");
+      expect(read.transcription).toEqual(done);
+      expect(read.mime).toBe("audio/mp4");
+      expect(read.durationSec).toBe(4);
+      expect(read.peaks).toEqual([0.2, 0.6]);
+      expect(new Uint8Array(await read.blob.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
+    });
+
+    it("refuses to transcribe an idea that isn't a voice idea", async () => {
+      const store = freshStore();
+      const { idea } = await store.capture(null, { kind: "note", text: "hm" });
+      await expect(store.setTranscription(idea.id, { status: "pending" })).rejects.toThrow(/not voice/);
+    });
+  });
+
   it("saves edits to a lyrics idea and moves its sketch to the top", async () => {
     const store = freshStore();
     const { sketch, idea } = await store.capture(null, { kind: "lyrics", doc: { type: "doc", content: [] } });

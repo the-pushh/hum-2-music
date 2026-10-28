@@ -1,5 +1,6 @@
 import Dexie, { type EntityTable } from "dexie";
-import type { Idea, IdeaInput, Sketch } from "./types";
+import type { Transcription } from "@/melody/types";
+import type { Idea, IdeaInput, Sketch, VoiceIdea } from "./types";
 
 type HumDb = Dexie & {
   sketches: EntityTable<Sketch, "id">;
@@ -82,6 +83,17 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
+  /** Sets a voice idea's transcription without touching its audio. Not an edit, so the sketch keeps its place in the list. */
+  async function setTranscription(id: string, transcription: Transcription): Promise<void> {
+    await db.transaction("rw", db.ideas, async () => {
+      const idea = await db.ideas.get(id);
+      if (!idea) throw new Error(`Idea ${id} not found`);
+      if (idea.kind !== "voice") throw new Error(`Idea ${id} is ${idea.kind}, not voice`);
+      const voice: VoiceIdea = { ...idea, transcription };
+      await db.ideas.put(voice);
+    });
+  }
+
   /** Moves an idea to a position in its sketch (clamped to the ends) and renumbers the rest 0..n-1. */
   async function moveIdea(id: string, toIndex: number): Promise<void> {
     await db.transaction("rw", db.sketches, db.ideas, async () => {
@@ -109,7 +121,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, moveIdea, removeIdea, capture };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, moveIdea, removeIdea, capture };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;
