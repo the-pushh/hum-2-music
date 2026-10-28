@@ -102,6 +102,16 @@ describe("sketch store", () => {
     expect(new Uint8Array(await idea.blob.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3, 4]));
   });
 
+  it("keeps a beat take's mode, tempo and click", async () => {
+    const store = freshStore();
+    const audio = new Blob([new Uint8Array([5, 6])], { type: "audio/mp4" });
+    const take = { mode: "beat", bpm: 100, click: true } as const;
+    const { idea } = await store.capture(null, { kind: "voice", blob: audio, mime: "audio/mp4", durationSec: 9.6, peaks: [], take });
+
+    const read = await store.getIdea(idea.id);
+    expect(read?.kind === "voice" && read.take).toEqual({ mode: "beat", bpm: 100, click: true });
+  });
+
   describe("transcription", () => {
     async function voiceIdea(store: ReturnType<typeof freshStore>) {
       const audio = new Blob([new Uint8Array([9, 8, 7])], { type: "audio/mp4" });

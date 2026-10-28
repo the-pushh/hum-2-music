@@ -29,7 +29,7 @@ export type LyricsDoc = { type: "doc"; content?: unknown[] };
 
 export type LyricsInput = { kind: "lyrics"; doc: LyricsDoc };
 
-/** A picture for the moodboard, stored as-is or scaled down (see prepareImage). */
+/** A picture for the moodboard, stored as-is or scaled down. */
 export type ImageInput = { kind: "image"; blob: Blob; w: number; h: number };
 
 /** Where a saved link points. Links can no longer be captured, but sketches from M1 still hold them. */

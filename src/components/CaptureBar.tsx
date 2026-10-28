@@ -1,13 +1,13 @@
 "use client";
 
+import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
-import { TextAa } from "@phosphor-icons/react";
+import { GridFour, MusicNotes, PencilSimple, TextAa } from "@phosphor-icons/react";
 import { emptyLyrics } from "@/lyrics/doc";
-import { transcribeIdea } from "@/melody/client";
+import { isBeat, transcribeIdea } from "@/melody/client";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
-import { IdeaChip } from "./IdeaChip";
-import { ImagePicker } from "./ImagePicker";
+import { beatBg, ideaBg } from "@/ui/ideaColors";
 import { Recorder } from "./Recorder";
 
 type Props = {
@@ -15,13 +15,48 @@ type Props = {
   openSketchId: string | null;
 };
 
-/** Every way to add an idea, shared by the home screen and the sketch page. */
+type Section = "lyrics" | "melody" | "beat";
+
+const sections: { value: Section; label: string; icon: ReactNode; bg: string }[] = [
+  { value: "lyrics", label: "Lyrics", icon: <TextAa size={16} />, bg: ideaBg.lyrics },
+  { value: "melody", label: "Melody", icon: <MusicNotes size={16} />, bg: ideaBg.voice },
+  { value: "beat", label: "Beat", icon: <GridFour size={16} />, bg: beatBg },
+];
+
+const storageKey = "hum.captureSection";
+
+/** The section last used, remembered in this browser only. Melody until one is chosen. */
+function useSection(): [Section, (section: Section) => void] {
+  const [section, setSection] = useState<Section>("melody");
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (sections.some((s) => s.value === saved)) setSection(saved as Section); // eslint-disable-line react-hooks/set-state-in-effect
+    } catch {
+      // Private windows and blocked storage start on Melody.
+    }
+  }, []);
+
+  function choose(next: Section) {
+    setSection(next);
+    try {
+      localStorage.setItem(storageKey, next);
+    } catch {}
+  }
+
+  return [section, choose];
+}
+
+/** The three things a songwriter captures, shared by the home screen and the sketch page: lyrics, a hummed melody, a beat. */
 export function CaptureBar({ openSketchId }: Props) {
   const router = useRouter();
+  const [section, setSection] = useSection();
+  const [recording, setRecording] = useState(false);
 
   async function save(input: IdeaInput, stillMounted = true) {
     const { sketch, idea } = await captureIdea(openSketchId, input);
-    if (idea.kind === "voice") void transcribeIdea(idea);
+    if (idea.kind === "voice" && !isBeat(idea)) void transcribeIdea(idea);
     if (stillMounted && !openSketchId) router.push(`/s/${sketch.id}`);
   }
 
@@ -32,13 +67,38 @@ export function CaptureBar({ openSketchId }: Props) {
 
   return (
     <section aria-label="Capture" className="flex w-full flex-col items-center gap-6">
-      <Recorder onSave={save} />
-      <div className="flex w-full flex-wrap gap-2">
-        <IdeaChip kind="lyrics" icon={<TextAa size={16} />} onClick={() => void writeLyrics()}>
-          Lyrics
-        </IdeaChip>
-        <ImagePicker onSave={(image) => save(image)} />
+      <div role="group" aria-label="What to capture" className="grid w-full grid-cols-3 gap-1 rounded-full bg-surface p-1">
+        {sections.map((s) => (
+          <button
+            key={s.value}
+            type="button"
+            aria-pressed={s.value === section}
+            disabled={recording && s.value !== section}
+            onClick={() => setSection(s.value)}
+            className="inline-flex h-12 items-center justify-center gap-2 rounded-full pr-3 pl-1 text-base font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50 aria-pressed:bg-raised aria-pressed:text-ink"
+          >
+            <span className={`inline-flex size-8 shrink-0 items-center justify-center rounded-full text-canvas ${s.bg}`} aria-hidden>
+              {s.icon}
+            </span>
+            {s.label}
+          </button>
+        ))}
       </div>
+      {section === "lyrics" ? (
+        <div className="flex flex-col items-center gap-3">
+          <button
+            type="button"
+            onClick={() => void writeLyrics()}
+            className={`inline-flex size-24 items-center justify-center rounded-full text-canvas transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ink ${ideaBg.lyrics}`}
+          >
+            <PencilSimple size={32} weight="fill" aria-hidden />
+            <span className="sr-only">Write lyrics</span>
+          </button>
+          <p className="text-sm text-ink-muted">Tap to write lyrics</p>
+        </div>
+      ) : (
+        <Recorder mode={section} onSave={save} onBusyChange={setRecording} />
+      )}
     </section>
   );
 }

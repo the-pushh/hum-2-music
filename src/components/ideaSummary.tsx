@@ -1,6 +1,7 @@
-import { LinkSimple, Microphone, NotePencil, Palette, TextAa, ImageSquare, type Icon } from "@phosphor-icons/react";
+import { GridFour, LinkSimple, Microphone, NotePencil, Palette, TextAa, ImageSquare, type Icon } from "@phosphor-icons/react";
 import { formatDuration } from "@/audio/formatDuration";
 import { lyricsLines } from "@/lyrics/doc";
+import { isBeat } from "@/melody/client";
 import type { Idea } from "@/sketches/types";
 
 /** A one-line description of any idea, for compact lists (arranging, confirming deletes). */
@@ -9,7 +10,9 @@ export function ideaSummary(idea: Idea): { icon: Icon; label: string } {
     case "note":
       return { icon: NotePencil, label: idea.text };
     case "voice":
-      return { icon: Microphone, label: `Hum, ${formatDuration(idea.durationSec)}` };
+      return isBeat(idea)
+        ? { icon: GridFour, label: `Beat, ${formatDuration(idea.durationSec)}` }
+        : { icon: Microphone, label: `Hum, ${formatDuration(idea.durationSec)}` };
     case "lyrics":
       return { icon: TextAa, label: lyricsLines(idea.doc).find((l) => l.trim() && !l.startsWith("[")) ?? "Empty lyrics" };
     case "image":

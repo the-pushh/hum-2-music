@@ -13,6 +13,11 @@ export function takeOf(idea: VoiceIdea): Take {
   return idea.take ?? { bpm: referenceBpm, click: false };
 }
 
+/** A vocalized drum beat rather than a hummed melody. */
+export function isBeat(idea: VoiceIdea): boolean {
+  return takeOf(idea).mode === "beat";
+}
+
 export function isTranscribing(ideaId: string) {
   return inFlight.has(ideaId);
 }

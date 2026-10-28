@@ -30,8 +30,13 @@ export function pitchClass(pitch: number): number {
 /** The tempo free takes are measured against when there was no click. */
 export const referenceBpm = 90;
 
+/** What a take is of: a hummed or sung melody, or a vocalized drum beat. */
+export type TakeMode = "melody" | "beat";
+
 /** What the recorder knew about a take when it was made. */
 export type Take = {
+  /** Missing on takes from before M4, which are all melodies. */
+  mode?: TakeMode;
   /** The click tempo, or the reference tempo for a free take. */
   bpm: number;
   click: boolean;
