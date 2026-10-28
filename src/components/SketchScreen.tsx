@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { Masonry } from "masonic";
-import { ArrowLeft, Check, PencilSimple, Trash } from "@phosphor-icons/react";
+import { ArrowLeft, Check, MusicNotes, PencilSimple, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
 import { deleteIdea, deleteSketch, sketchStore } from "@/sketches/client";
 import type { Idea } from "@/sketches/types";
@@ -104,6 +104,15 @@ export function SketchScreen({ id }: { id: string }) {
         )}
         {sketch && (
           <div className="flex justify-end gap-2">
+            {!editing && (
+              <Link
+                href={`/s/${id}/studio`}
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-raised px-3 py-2 text-base font-semibold text-ink transition duration-300 ease-soft hover:bg-line active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+              >
+                <MusicNotes size={20} aria-hidden />
+                Open in studio
+              </Link>
+            )}
             {editing && (
               <Button variant="ghost" onClick={() => setConfirming({ kind: "sketch" })}>
                 <Trash size={20} aria-hidden />

@@ -1,0 +1,602 @@
+// Copied from ComposeYogi (MIT, https://github.com/AppsYogi-com/ComposeYogi at 13fe2f61) and adapted for hum.
+// See src/studio/LICENSE-ComposeYogi.
+// ============================================
+// ComposeYogi — Synth Presets
+// ============================================
+//
+// The instrument library: 64 presets, and the construction of a Tone voice from
+// a spec.
+//
+// The 52 melodic presets are built from `preset-specs.ts` rather than from
+// hand-written factories. They used to be factories — one `createX()` per
+// preset, each constructing a Tone node and returning it — which made the
+// library's *sound* unreadable to the rest of the app: "start from the Electric
+// Piano" is not implementable when the Electric Piano is a closure. Writing
+// specs alongside the factories would have been a second source of truth for 52
+// sounds, drifting the first time anyone edited one, so the factories are gone.
+//
+// The six *synthesised* drum presets are built the same way, from `DrumSpec`s —
+// a MembraneSynth is a voice with four parameters, which is what a spec is for.
+// The six `Tone.Sampler` kits stay bespoke: they load WAV files, so there is no
+// oscillator or envelope to name, and a kit is a mapping of pieces rather than a
+// voice.
+//
+// This file knows nothing about custom instruments — see `custom-instruments.ts`.
+// User content is resolved one layer up, in the scheduler, so the built-in
+// library never imports IndexedDB-backed state.
+
+import * as Tone from 'tone';
+
+
+import { drumVoiceOptions, isDrumSpec, voiceOptions } from './instrument-spec';
+import { PRESET_SPECS } from './preset-specs';
+
+import type { AnyInstrumentSpec, DrumSpec, InstrumentSpec, InstrumentVoice } from '@/studio/types';
+
+// ============================================
+// Types
+// ============================================
+
+// Union type for all synths we might create
+export type SynthType = Tone.PolySynth | Tone.MonoSynth | Tone.MembraneSynth | Tone.NoiseSynth | Tone.Sampler;
+
+/**
+ * A constructed instrument, ready to schedule.
+ *
+ * `synth` and `output` are separate because a custom instrument's Brightness is
+ * a filter node *after* the voice: the scheduler triggers notes on `synth` (and
+ * branches on its class for polyphony and pitch), but must connect `output`, or
+ * the filter is built, wired to nothing, and silently bypassed. For every
+ * built-in the two are the same object.
+ */
+export interface ResolvedInstrument {
+    synth: SynthType;
+    /** Where the instrument's audio leaves. Connect this, never `synth`. */
+    output: Tone.ToneAudioNode;
+    /** Extra nodes the caller must dispose alongside the synth. */
+    nodes: Tone.ToneAudioNode[];
+}
+
+export interface SynthPreset {
+    id: string;
+    name: string;
+    category: 'synth' | 'keys' | 'bass' | 'pad' | 'lead' | 'drums' | 'idiophones' | 'plucked-strings' | 'bowed-strings' | 'wind';
+    createSynth: () => SynthType;
+}
+
+// ============================================
+// Voices
+// ============================================
+
+/**
+ * The four Tone classes a spec's `voice` can name.
+ *
+ * Every melodic preset in the library is a PolySynth wrapping one of these, so
+ * this map plus `voiceOptions()` is the whole of how a sound gets built. Get an
+ * entry wrong and thirteen instruments change character at once while every
+ * options test still passes — which is why the golden fixture records the voice
+ * name alongside the options, and the test checks both.
+ */
+const VOICE_CONSTRUCTORS = {
+    synth: Tone.Synth,
+    monosynth: Tone.MonoSynth,
+    fmsynth: Tone.FMSynth,
+    amsynth: Tone.AMSynth,
+} as const satisfies Record<InstrumentVoice, unknown>;
+
+/**
+ * Build a voice from a spec — the only place a melodic instrument is
+ * constructed, whether it is one of the 52 built-ins or something a user made.
+ *
+ * Falls back to a plain synth on a null spec rather than throwing. That branch
+ * is unreachable (`tests/instrument-spec.test.ts` proves every customizable
+ * preset has one) but a missing sound is a recoverable disappointment and a
+ * throw here would take the whole schedule down with it.
+ */
+export function createVoice(spec: InstrumentSpec | null | undefined): Tone.PolySynth {
+    if (!spec) return new Tone.PolySynth(Tone.Synth);
+
+    const voice = VOICE_CONSTRUCTORS[spec.voice] ?? Tone.Synth;
+    // Tone's PolySynth generic cannot express "one of these four", and the
+    // options shape genuinely differs per voice. The pairing is what the golden
+    // test checks, so the cast is asserting something that is verified.
+    const synth = new Tone.PolySynth(
+        voice as typeof Tone.Synth,
+        voiceOptions(spec) as ConstructorParameters<typeof Tone.Synth>[0]
+    );
+
+    if (spec.level !== 0) synth.volume.value = spec.level;
+    return synth;
+}
+
+/**
+ * Build a percussion voice from a spec — the drum half of `createVoice`, and
+ * the only place one of the six synthesised kits is constructed.
+ *
+ * Neither class is wrapped in a PolySynth, unlike every melodic voice. A
+ * MembraneSynth retriggers cleanly on its own and a kit lane plays one hit at a
+ * time, so the wrapper would add voice allocation to something that has never
+ * needed it — and it would change the class the scheduler branches on, which is
+ * how a NoiseSynth would start being handed a pitch it does not have.
+ *
+ * Constructed by a branch rather than from a map: the two option shapes have
+ * nothing in common, so a map would be a map plus two casts.
+ */
+export function createDrumVoice(spec: DrumSpec): Tone.MembraneSynth | Tone.NoiseSynth {
+    const options = drumVoiceOptions(spec);
+
+    const synth = spec.voice === 'noise'
+        ? new Tone.NoiseSynth(options as ConstructorParameters<typeof Tone.NoiseSynth>[0])
+        : new Tone.MembraneSynth(options as ConstructorParameters<typeof Tone.MembraneSynth>[0]);
+
+    if (spec.level !== 0) synth.volume.value = spec.level;
+    return synth;
+}
+
+/**
+ * A voice from either kind of spec.
+ *
+ * The single dispatch point, so the built-in library and the custom-instrument
+ * registry cannot disagree about what a spec means — the same reason the
+ * scheduler is the single place a clip becomes sound.
+ */
+export function createSpecVoice(spec: AnyInstrumentSpec | null | undefined): SynthType {
+    if (!spec) return createVoice(spec);
+    return isDrumSpec(spec) ? createDrumVoice(spec) : createVoice(spec);
+}
+
+/** A built-in preset's `createSynth`, resolved from its spec at call time. */
+const fromSpec = (presetId: string) => (): SynthType =>
+    createSpecVoice((PRESET_SPECS as Record<string, AnyInstrumentSpec | null>)[presetId]);
+
+/**
+ * Wait for a synth to be ready (mainly for Sampler which loads async)
+ */
+export async function waitForSynthReady(synth: SynthType): Promise<void> {
+    if (synth instanceof Tone.Sampler) {
+        // Wait for all buffers to load
+        await Tone.loaded();
+    }
+    // Other synth types are ready immediately
+}
+
+// Eight empty category banners used to sit here — Mallet, Plucked Strings,
+// Bowed Strings, Woodwinds, Brass, Basic Waveforms, Euphonium, and (until
+// 8.7.5b) Taiko and Maracas. Each one headed a factory that is now a spec in
+// `preset-specs.ts`, and a banner announcing a section with nothing in it says
+// the sounds live here when they do not. The categories themselves are still
+// real; they are in `SYNTH_PRESETS` below, which is where they belong.
+
+// ============================================
+// Preset Registry
+// ============================================
+
+// `satisfies` rather than a type annotation: an annotation of
+// Record<string, SynthPreset> widens the keys to `string` and SynthPresetId
+// below would be useless. `satisfies` checks the shape while keeping the
+// literal ids, which is what makes INSTRUMENT_META provably exhaustive.
+export const SYNTH_PRESETS = {
+    // Keys
+    'grand-piano': {
+        id: 'grand-piano',
+        name: 'Grand Piano',
+        category: 'keys',
+        createSynth: fromSpec('grand-piano'),
+    },
+    'electric-piano': {
+        id: 'electric-piano',
+        name: 'Electric Piano',
+        category: 'keys',
+        createSynth: fromSpec('electric-piano'),
+    },
+    'bright-piano': {
+        id: 'bright-piano',
+        name: 'Bright Piano',
+        category: 'keys',
+        createSynth: fromSpec('bright-piano'),
+    },
+    'harpsichord': {
+        id: 'harpsichord',
+        name: 'Harpsichord',
+        category: 'keys',
+        createSynth: fromSpec('harpsichord'),
+    },
+    'organ': {
+        id: 'organ',
+        name: 'Organ',
+        category: 'keys',
+        createSynth: fromSpec('organ'),
+    },
+    'clavinet': {
+        id: 'clavinet',
+        name: 'Clavinet',
+        category: 'keys',
+        createSynth: fromSpec('clavinet'),
+    },
+
+    // Bass
+    'sub-bass': {
+        id: 'sub-bass',
+        name: 'Sub Bass',
+        category: 'bass',
+        createSynth: fromSpec('sub-bass'),
+    },
+    'synth-bass': {
+        id: 'synth-bass',
+        name: 'Synth Bass',
+        category: 'bass',
+        createSynth: fromSpec('synth-bass'),
+    },
+    'fm-bass': {
+        id: 'fm-bass',
+        name: 'FM Bass',
+        category: 'bass',
+        createSynth: fromSpec('fm-bass'),
+    },
+    'pluck-bass': {
+        id: 'pluck-bass',
+        name: 'Pluck Bass',
+        category: 'bass',
+        createSynth: fromSpec('pluck-bass'),
+    },
+
+    // Leads
+    'saw-lead': {
+        id: 'saw-lead',
+        name: 'Saw Lead',
+        category: 'lead',
+        createSynth: fromSpec('saw-lead'),
+    },
+    'square-lead': {
+        id: 'square-lead',
+        name: 'Square Lead',
+        category: 'lead',
+        createSynth: fromSpec('square-lead'),
+    },
+    'fm-lead': {
+        id: 'fm-lead',
+        name: 'FM Lead',
+        category: 'lead',
+        createSynth: fromSpec('fm-lead'),
+    },
+    'pulse-lead': {
+        id: 'pulse-lead',
+        name: 'Pulse Lead',
+        category: 'lead',
+        createSynth: fromSpec('pulse-lead'),
+    },
+
+    // Pads
+    'warm-pad': {
+        id: 'warm-pad',
+        name: 'Warm Pad',
+        category: 'pad',
+        createSynth: fromSpec('warm-pad'),
+    },
+    'string-pad': {
+        id: 'string-pad',
+        name: 'String Pad',
+        category: 'pad',
+        createSynth: fromSpec('string-pad'),
+    },
+    'choir-pad': {
+        id: 'choir-pad',
+        name: 'Choir Pad',
+        category: 'pad',
+        createSynth: fromSpec('choir-pad'),
+    },
+    'glass-pad': {
+        id: 'glass-pad',
+        name: 'Glass Pad',
+        category: 'pad',
+        createSynth: fromSpec('glass-pad'),
+    },
+
+    // Synths
+    'basic-synth': {
+        id: 'basic-synth',
+        name: 'Basic Synth',
+        category: 'synth',
+        createSynth: fromSpec('basic-synth'),
+    },
+    'pluck-synth': {
+        id: 'pluck-synth',
+        name: 'Pluck',
+        category: 'synth',
+        createSynth: fromSpec('pluck-synth'),
+    },
+    'bell-synth': {
+        id: 'bell-synth',
+        name: 'Bell',
+        category: 'idiophones',
+        createSynth: fromSpec('bell-synth'),
+    },
+
+    // Idiophones / Pitched Percussion
+    'chimes': {
+        id: 'chimes',
+        name: 'Chimes',
+        category: 'idiophones',
+        createSynth: fromSpec('chimes'),
+    },
+    'marimba': {
+        id: 'marimba',
+        name: 'Marimba',
+        category: 'idiophones',
+        createSynth: fromSpec('marimba'),
+    },
+    'xylophone': {
+        id: 'xylophone',
+        name: 'Xylophone',
+        category: 'idiophones',
+        createSynth: fromSpec('xylophone'),
+    },
+    'vibraphone': {
+        id: 'vibraphone',
+        name: 'Vibraphone',
+        category: 'idiophones',
+        createSynth: fromSpec('vibraphone'),
+    },
+    'kalimba': {
+        id: 'kalimba',
+        name: 'Kalimba',
+        category: 'idiophones',
+        createSynth: fromSpec('kalimba'),
+    },
+    'celeste': {
+        id: 'celeste',
+        name: 'Celeste',
+        category: 'idiophones',
+        createSynth: fromSpec('celeste'),
+    },
+    'glockenspiel': {
+        id: 'glockenspiel',
+        name: 'Glockenspiel',
+        category: 'idiophones',
+        createSynth: fromSpec('glockenspiel'),
+    },
+    'steel-pan': {
+        id: 'steel-pan',
+        name: 'Steel Pan',
+        category: 'idiophones',
+        createSynth: fromSpec('steel-pan'),
+    },
+
+    // Plucked Strings
+    'guitar': {
+        id: 'guitar',
+        name: 'Guitar',
+        category: 'plucked-strings',
+        createSynth: fromSpec('guitar'),
+    },
+    'harp': {
+        id: 'harp',
+        name: 'Harp',
+        category: 'plucked-strings',
+        createSynth: fromSpec('harp'),
+    },
+    'pizzicato': {
+        id: 'pizzicato',
+        name: 'Pizzicato',
+        category: 'plucked-strings',
+        createSynth: fromSpec('pizzicato'),
+    },
+    'ukulele': {
+        id: 'ukulele',
+        name: 'Ukulele',
+        category: 'plucked-strings',
+        createSynth: fromSpec('ukulele'),
+    },
+    'banjo': {
+        id: 'banjo',
+        name: 'Banjo',
+        category: 'plucked-strings',
+        createSynth: fromSpec('banjo'),
+    },
+
+    // Bowed Strings
+    'violin': {
+        id: 'violin',
+        name: 'Violin',
+        category: 'bowed-strings',
+        createSynth: fromSpec('violin'),
+    },
+    'cello': {
+        id: 'cello',
+        name: 'Cello',
+        category: 'bowed-strings',
+        createSynth: fromSpec('cello'),
+    },
+    'double-bass': {
+        id: 'double-bass',
+        name: 'Double Bass',
+        category: 'bowed-strings',
+        createSynth: fromSpec('double-bass'),
+    },
+    'tenor-violin': {
+        id: 'tenor-violin',
+        name: 'Tenor Violin',
+        category: 'bowed-strings',
+        createSynth: fromSpec('tenor-violin'),
+    },
+    'fiddle': {
+        id: 'fiddle',
+        name: 'Fiddle',
+        category: 'bowed-strings',
+        createSynth: fromSpec('fiddle'),
+    },
+
+    // Wind (merged Woodwind + Brass)
+    'flute': {
+        id: 'flute',
+        name: 'Flute',
+        category: 'wind',
+        createSynth: fromSpec('flute'),
+    },
+    'piccolo': {
+        id: 'piccolo',
+        name: 'Piccolo',
+        category: 'wind',
+        createSynth: fromSpec('piccolo'),
+    },
+    'saxophone': {
+        id: 'saxophone',
+        name: 'Saxophone',
+        category: 'wind',
+        createSynth: fromSpec('saxophone'),
+    },
+    'bassoon': {
+        id: 'bassoon',
+        name: 'Bassoon',
+        category: 'wind',
+        createSynth: fromSpec('bassoon'),
+    },
+    'oboe': {
+        id: 'oboe',
+        name: 'Oboe',
+        category: 'wind',
+        createSynth: fromSpec('oboe'),
+    },
+    'trumpet': {
+        id: 'trumpet',
+        name: 'Trumpet',
+        category: 'wind',
+        createSynth: fromSpec('trumpet'),
+    },
+    'euphonium': {
+        id: 'euphonium',
+        name: 'Euphonium',
+        category: 'wind',
+        createSynth: fromSpec('euphonium'),
+    },
+
+    // Additional instruments
+    'didgeridoo': {
+        id: 'didgeridoo',
+        name: 'Didgeridoo',
+        category: 'wind',
+        createSynth: fromSpec('didgeridoo'),
+    },
+    'vocal-synth': {
+        id: 'vocal-synth',
+        name: 'Vocal Synth',
+        category: 'synth',
+        createSynth: fromSpec('vocal-synth'),
+    },
+    'orchestra-hit': {
+        id: 'orchestra-hit',
+        name: 'Orchestra Hit',
+        category: 'bowed-strings',
+        createSynth: fromSpec('orchestra-hit'),
+    },
+    'guzheng': {
+        id: 'guzheng',
+        name: 'Guzheng',
+        category: 'plucked-strings',
+        createSynth: fromSpec('guzheng'),
+    },
+
+    // Drums — the six below are specs; the six samplers after them are not
+    'synth-drum-kit': {
+        id: 'synth-drum-kit',
+        name: 'Synth Drum Kit',
+        category: 'drums',
+        createSynth: fromSpec('synth-drum-kit'),
+    },
+    'drum-synth': {
+        id: 'drum-synth',
+        name: 'Classic Drum',
+        category: 'drums',
+        createSynth: fromSpec('drum-synth'),
+    },
+    'bongos': {
+        id: 'bongos',
+        name: 'Bongos',
+        category: 'drums',
+        createSynth: fromSpec('bongos'),
+    },
+    'wooden-block': {
+        id: 'wooden-block',
+        name: 'Wooden Block',
+        category: 'drums',
+        createSynth: fromSpec('wooden-block'),
+    },
+    'taiko': {
+        id: 'taiko',
+        name: 'Taiko',
+        category: 'drums',
+        createSynth: fromSpec('taiko'),
+    },
+    'maracas': {
+        id: 'maracas',
+        name: 'Maracas',
+        category: 'drums',
+        createSynth: fromSpec('maracas'),
+    },
+
+    // Basic Waveform Synths
+    'square-wave': {
+        id: 'square-wave',
+        name: 'Square Wave',
+        category: 'synth',
+        createSynth: fromSpec('square-wave'),
+    },
+    'triangle-wave': {
+        id: 'triangle-wave',
+        name: 'Triangle Wave',
+        category: 'synth',
+        createSynth: fromSpec('triangle-wave'),
+    },
+    'sawtooth-wave': {
+        id: 'sawtooth-wave',
+        name: 'Sawtooth Wave',
+        category: 'synth',
+        createSynth: fromSpec('sawtooth-wave'),
+    },
+} satisfies Record<string, SynthPreset>;
+
+/** Every id in the preset registry — the canonical list of instruments. */
+export type SynthPresetId = keyof typeof SYNTH_PRESETS;
+
+/** Preset ids in declaration order (grouped by category in this file). */
+export const SYNTH_PRESET_IDS = Object.keys(SYNTH_PRESETS) as SynthPresetId[];
+
+// ============================================
+// Helper Functions
+// ============================================
+
+/**
+ * Get a synth preset by ID
+ */
+export function getSynthPreset(presetId: string): SynthPreset | undefined {
+    return (SYNTH_PRESETS as Record<string, SynthPreset>)[presetId];
+}
+
+/**
+ * Create a synth for a built-in preset id, falling back to the basic synth.
+ *
+ * Knows nothing about custom instruments, deliberately: user content is
+ * resolved one layer up, in the scheduler, which is already the single place
+ * that decides clip preset → track preset → track colour. Teaching this
+ * function about the user registry would mean the built-in library importing
+ * IndexedDB-backed state, and a genuine import cycle with it.
+ */
+export function createSynthFromPreset(presetId: string | undefined): SynthType {
+    const preset = presetId ? getSynthPreset(presetId) : undefined;
+    if (preset) {
+        return preset.createSynth();
+    }
+    return fromSpec('basic-synth')();
+}
+
+/** A preset's display name, or the raw id if it is not one we know. */
+export function getSynthPresetName(presetId: string): string {
+    return getSynthPreset(presetId)?.name ?? presetId;
+}
+
+/**
+ * Get all presets for a category
+ */
+export function getPresetsByCategory(category: SynthPreset['category']): SynthPreset[] {
+    return Object.values(SYNTH_PRESETS as Record<string, SynthPreset>).filter((p) => p.category === category);
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import * as Tone from "tone";
-import { audioContext } from "./context";
+import { tone } from "./tone";
 
 type ClickOptions = {
   bpm: number;
@@ -15,20 +15,12 @@ type ClickOptions = {
   onTakeEnd: () => void;
 };
 
-let toneReady: Promise<void> | undefined;
-
-/** Tone runs on hum's AudioContext, so the click and the piano share one clock. */
-function ready(): Promise<void> {
-  toneReady ??= audioContext().then((ctx) => Tone.setContext(new Tone.Context(ctx)));
-  return toneReady;
-}
-
 /**
  * Plays a one-bar count-in, then a click through the take, calling back on the take's first downbeat and at the end
  * of its last bar. Returns a function that stops the click early.
  */
 export async function startClick({ bpm, bars, onCountIn, onTakeStart, onTakeEnd }: ClickOptions): Promise<() => void> {
-  await ready();
+  await tone();
   const transport = Tone.getTransport();
   transport.stop();
   transport.cancel();
