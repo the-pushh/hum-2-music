@@ -37,7 +37,6 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
 
   return (
     <main className="relative mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pt-8 pb-24">
-      <DotGrid />
       <Link
         href={`/s/${sketchId}`}
         className="inline-flex w-fit items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
@@ -94,19 +93,5 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
         </>
       )}
     </main>
-  );
-}
-
-/** The faint dot grid behind the studio, as in a DAW's canvas. A pattern of dots, not a gradient. */
-function DotGrid() {
-  return (
-    <svg aria-hidden className="pointer-events-none fixed inset-0 -z-10 size-full text-line">
-      <defs>
-        <pattern id="studio-dots" width="24" height="24" patternUnits="userSpaceOnUse">
-          <circle cx="1" cy="1" r="1" className="fill-current" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#studio-dots)" />
-    </svg>
   );
 }

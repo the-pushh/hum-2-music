@@ -107,7 +107,7 @@ export function SketchScreen({ id }: { id: string }) {
             {!editing && (
               <Link
                 href={`/s/${id}/studio`}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-raised px-3 py-2 text-base font-semibold text-ink transition duration-300 ease-soft hover:bg-line active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-melody py-2 pr-4 pl-3 text-base font-semibold text-canvas transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
               >
                 <MusicNotes size={20} aria-hidden />
                 Open in studio
@@ -132,7 +132,7 @@ export function SketchScreen({ id }: { id: string }) {
             ))}
           </div>
         ) : ideas.length === 0 ? (
-          <div className="rounded-2xl border border-line p-6">
+          <div className="rounded-2xl bg-surface p-6">
             <p className="text-base text-ink">Nothing in this sketch yet.</p>
             <p className="text-sm text-ink-muted">Record a hum or add a note to start collecting the pieces of this song.</p>
           </div>

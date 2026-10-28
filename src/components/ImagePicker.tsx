@@ -4,7 +4,7 @@ import { useRef, useState } from "react";
 import { ImageSquare } from "@phosphor-icons/react";
 import { prepareImage } from "@/ui/prepareImage";
 import type { ImageInput } from "@/sketches/types";
-import { Button } from "./Button";
+import { IdeaChip } from "./IdeaChip";
 
 /** No `capture` attribute, so phones offer both the camera and the photo library. */
 export function ImagePicker({ onSave }: { onSave: (image: ImageInput) => Promise<void> }) {
@@ -37,10 +37,9 @@ export function ImagePicker({ onSave }: { onSave: (image: ImageInput) => Promise
         aria-hidden
         onChange={(e) => void onPick(e.target.files?.[0])}
       />
-      <Button variant="secondary" onClick={() => input.current?.click()} disabled={busy}>
-        <ImageSquare size={20} aria-hidden />
+      <IdeaChip kind="image" icon={<ImageSquare size={16} />} onClick={() => input.current?.click()} disabled={busy}>
         {busy ? "Adding" : "Image"}
-      </Button>
+      </IdeaChip>
       {error && (
         <p role="alert" className="w-full text-sm text-accent">
           {error}

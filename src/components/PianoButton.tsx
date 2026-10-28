@@ -41,7 +41,7 @@ export function PianoButton({ notes, bpm }: { notes: Note[]; bpm: number }) {
         {state === "loading" ? "Loading piano" : state === "playing" ? "Stop" : "Play as piano"}
       </Button>
       {state === "failed" && (
-        <span role="alert" className="text-xs text-accent">
+        <span role="alert" className="text-xs font-semibold">
           The piano didn&apos;t load. Check your connection and try again.
         </span>
       )}

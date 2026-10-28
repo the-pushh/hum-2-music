@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { NotePencil } from "@phosphor-icons/react";
 import { Button } from "./Button";
+import { IdeaChip } from "./IdeaChip";
 
 type Props = { onSave: (text: string) => Promise<void> };
 
@@ -14,10 +15,9 @@ export function NoteComposer({ onSave }: Props) {
 
   if (!open) {
     return (
-      <Button variant="secondary" onClick={() => setOpen(true)}>
-        <NotePencil size={20} aria-hidden />
+      <IdeaChip kind="note" icon={<NotePencil size={16} />} onClick={() => setOpen(true)}>
         Note
-      </Button>
+      </IdeaChip>
     );
   }
 

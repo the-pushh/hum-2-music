@@ -8,6 +8,7 @@ import { formatDuration } from "@/audio/formatDuration";
 import { waveformBars } from "@/audio/waveformStyle";
 import { tokenColor } from "@/ui/tokenColor";
 import type { VoiceIdea } from "@/sketches/types";
+import { ideaBg, onColorButton } from "@/ui/ideaColors";
 import { MelodyPanel } from "./MelodyPanel";
 
 const SEEK_STEP_SEC = 5;
@@ -21,7 +22,8 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
   // changes identity, so depending on the objects themselves loops forever.
   const { blob, peaks: rawPeaks, durationSec } = idea;
   const peaks = useMemo(() => (rawPeaks.length ? [rawPeaks] : undefined), [idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
-  const colors = useMemo(() => ({ wave: tokenColor("ink-muted"), progress: tokenColor("ink"), cursor: tokenColor("accent") }), []);
+  // Dark on the card's lime: the unplayed part faint, the played part solid.
+  const colors = useMemo(() => ({ wave: `${tokenColor("canvas")}59`, progress: tokenColor("canvas"), cursor: tokenColor("canvas") }), []);
 
   const { wavesurfer, isPlaying, currentTime } = useWavesurfer({
     container: containerRef,
@@ -72,13 +74,14 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
   }
 
   return (
-    <article className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+    <article className={`flex flex-col gap-3 rounded-2xl p-3 text-canvas ${ideaBg.voice}`}>
+      <span className="px-1 text-xs font-semibold uppercase opacity-70">Hum</span>
       <div className="flex items-center gap-3">
         <button
           type="button"
           disabled={failed}
           onClick={() => wavesurfer?.playPause().catch(() => setFailed(true))}
-          className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-ink text-canvas transition duration-300 ease-soft hover:bg-ink-muted active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:opacity-50"
+          className={onColorButton}
         >
           {isPlaying ? <Pause size={20} weight="fill" aria-hidden /> : <Play size={20} weight="fill" aria-hidden />}
           <span className="sr-only">{isPlaying ? "Pause" : "Play"} hum</span>
@@ -94,14 +97,14 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
             aria-valuenow={Math.round(currentTime)}
             aria-valuetext={`${formatDuration(currentTime)} of ${formatDuration(durationSec)}`}
             onKeyDown={onWaveKey}
-            className="h-12 w-full cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            className="h-12 w-full cursor-pointer rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-canvas"
           />
           {failed ? (
-            <span role="alert" className="text-xs text-accent">
+            <span role="alert" className="text-xs font-semibold">
               This browser can&apos;t play this recording. It may have been made on another device.
             </span>
           ) : (
-            <span className="font-mono text-xs text-ink-muted tabular-nums">
+            <span className="font-mono text-xs opacity-70 tabular-nums">
               {formatDuration(currentTime)} / {formatDuration(durationSec)}
             </span>
           )}

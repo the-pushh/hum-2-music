@@ -8,7 +8,7 @@ import { emptyLyrics } from "@/lyrics/doc";
 import { transcribeIdea } from "@/melody/client";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
-import { Button } from "./Button";
+import { IdeaChip } from "./IdeaChip";
 import { ColorPicker } from "./ColorPicker";
 import { ImagePicker } from "./ImagePicker";
 import { LinkComposer } from "./LinkComposer";
@@ -45,10 +45,9 @@ export function CaptureBar({ openSketchId }: Props) {
       <Recorder onSave={save} />
       <div className="flex w-full flex-wrap gap-2">
         <NoteComposer onSave={(text) => save({ kind: "note", text })} />
-        <Button variant="secondary" onClick={() => void writeLyrics()}>
-          <TextAa size={20} aria-hidden />
+        <IdeaChip kind="lyrics" icon={<TextAa size={16} />} onClick={() => void writeLyrics()}>
           Lyrics
-        </Button>
+        </IdeaChip>
         <ImagePicker onSave={(image) => save(image)} />
         <LinkComposer onSave={saveLink} />
         <ColorPicker onSave={(color) => save(color)} />

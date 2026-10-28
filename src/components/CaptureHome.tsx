@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { CaretRight } from "@phosphor-icons/react";
+import { CaretRight, MusicNotes } from "@phosphor-icons/react";
 import { sketchStore } from "@/sketches/client";
 import { CaptureBar } from "./CaptureBar";
 
@@ -13,8 +13,8 @@ export function CaptureHome() {
 
   return (
     <main className="mx-auto flex w-full max-w-xl flex-col gap-8 px-4 py-8">
-      <header>
-        <p className="text-sm font-semibold text-ink-muted">hum</p>
+      <header className="flex flex-col items-start gap-3">
+        <span className="inline-flex h-8 items-center rounded-lg bg-raised px-2 font-mono text-sm text-ink">hum</span>
         <h1 className="text-3xl font-semibold text-ink">Catch it before it goes</h1>
       </header>
 
@@ -31,7 +31,7 @@ export function CaptureHome() {
             ))}
           </ul>
         ) : sketches.length === 0 ? (
-          <div className="rounded-2xl border border-line p-6">
+          <div className="rounded-2xl bg-surface p-6">
             <p className="text-base text-ink">No sketches yet.</p>
             <p className="text-sm text-ink-muted">
               Record a hum or save a note above and hum starts a sketch for it. Everything you add later collects there.
@@ -43,13 +43,18 @@ export function CaptureHome() {
               <li key={s.id}>
                 <Link
                   href={`/s/${s.id}`}
-                  className="flex items-center justify-between gap-4 rounded-2xl bg-surface p-4 transition duration-300 ease-soft hover:bg-raised active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+                  className="group flex items-center gap-3 rounded-2xl bg-surface p-2 transition duration-300 ease-soft hover:bg-raised active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
                 >
-                  <span className="flex flex-col">
-                    <span className="text-base font-semibold text-ink">{s.title}</span>
-                    <span className="text-sm text-ink-muted">Updated {updatedAtFormat.format(s.updatedAt)}</span>
+                  <span className="inline-flex size-12 shrink-0 items-center justify-center rounded-lg bg-melody text-canvas" aria-hidden>
+                    <MusicNotes size={20} />
                   </span>
-                  <CaretRight size={20} className="text-ink-muted" aria-hidden />
+                  <span className="flex min-w-0 flex-1 flex-col">
+                    <span className="truncate text-base font-semibold text-ink">{s.title}</span>
+                    <span className="font-mono text-xs text-ink-muted">{updatedAtFormat.format(s.updatedAt)}</span>
+                  </span>
+                  <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-raised text-ink transition duration-300 ease-soft group-hover:bg-line" aria-hidden>
+                    <CaretRight size={16} />
+                  </span>
                 </Link>
               </li>
             ))}

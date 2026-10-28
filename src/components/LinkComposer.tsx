@@ -4,6 +4,7 @@ import { useState } from "react";
 import { LinkSimple } from "@phosphor-icons/react";
 import { parseLink, type LinkTarget } from "@/links/parseLink";
 import { Button } from "./Button";
+import { IdeaChip } from "./IdeaChip";
 
 export function LinkComposer({ onSave }: { onSave: (target: LinkTarget) => Promise<void> }) {
   const [open, setOpen] = useState(false);
@@ -13,10 +14,9 @@ export function LinkComposer({ onSave }: { onSave: (target: LinkTarget) => Promi
 
   if (!open) {
     return (
-      <Button variant="secondary" onClick={() => setOpen(true)}>
-        <LinkSimple size={20} aria-hidden />
+      <IdeaChip kind="link" icon={<LinkSimple size={16} />} onClick={() => setOpen(true)}>
         Link
-      </Button>
+      </IdeaChip>
     );
   }
 

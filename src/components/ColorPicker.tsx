@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { Palette } from "@phosphor-icons/react";
 import type { ColorInput } from "@/sketches/types";
-import { Button } from "./Button";
+import { IdeaChip } from "./IdeaChip";
 
 /** The platform color picker: a full picker on desktop, the system sheet on phones. Saves when the picker closes. */
 export function ColorPicker({ onSave }: { onSave: (color: ColorInput) => Promise<void> }) {
@@ -35,10 +35,9 @@ export function ColorPicker({ onSave }: { onSave: (color: ColorInput) => Promise
         // `change` fires once when the picker closes, not on every drag like `input`.
         onChange={(e) => void save(e.target.value)}
       />
-      <Button variant="secondary" onClick={() => input.current?.click()} disabled={saving}>
-        <Palette size={20} aria-hidden />
+      <IdeaChip kind="color" icon={<Palette size={16} />} onClick={() => input.current?.click()} disabled={saving}>
         {saving ? "Adding" : "Color"}
-      </Button>
+      </IdeaChip>
       {error && (
         <p role="alert" className="w-full text-sm text-accent">
           {error}
