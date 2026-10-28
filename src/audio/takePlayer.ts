@@ -52,9 +52,12 @@ async function play(
   const ctx = await audioContext();
   const secPerBeat = 60 / bpm;
   const at = ctx.currentTime + 0.05;
+  // smplr queues notes that start later, and its stop() only silences notes already sounding, so each note's own
+  // cancel is kept to stop the rest of the take.
+  const cancels: (() => void)[] = [];
   for (const n of notes) {
     const v = voice(n);
-    if (v) sound.start({ ...v, time: at + n.start * secPerBeat, duration: n.duration * secPerBeat });
+    if (v) cancels.push(sound.start({ ...v, time: at + n.start * secPerBeat, duration: n.duration * secPerBeat }));
   }
   const length = Math.max(0, ...notes.map((n) => n.start + n.duration)) * secPerBeat;
   let ended = false;
@@ -67,7 +70,7 @@ async function play(
   const timer = setTimeout(end, (length + 0.3) * 1000);
   return {
     pause() {
-      sound.stop();
+      cancels.forEach((cancel) => cancel());
       end();
     },
   };
