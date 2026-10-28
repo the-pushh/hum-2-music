@@ -1,7 +1,6 @@
 # hum-2-music
 
-hum is a sketchpad for song ideas. Hum a melody, write lyrics, and collect pictures, links and colours into a
-sketch. Everything stays in your browser (IndexedDB). There's no account and no server storage.
+hum is a sketchpad for song ideas. Hum a melody, write lyrics, and collect pictures into a sketch. Everything stays in your browser (IndexedDB). There's no account and no server storage.
 
 ## Run it
 

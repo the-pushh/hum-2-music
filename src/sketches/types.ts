@@ -1,4 +1,3 @@
-import type { LinkProvider } from "@/links/parseLink";
 import type { Take, Transcription } from "@/melody/types";
 import type { Project } from "@/studio/types";
 
@@ -32,6 +31,9 @@ export type LyricsInput = { kind: "lyrics"; doc: LyricsDoc };
 
 /** A picture for the moodboard, stored as-is or scaled down (see prepareImage). */
 export type ImageInput = { kind: "image"; blob: Blob; w: number; h: number };
+
+/** Where a saved link points. Links can no longer be captured, but sketches from M1 still hold them. */
+export type LinkProvider = "youtube" | "spotify" | "web";
 
 /** A saved reference. Title, description and thumbnail come from oEmbed or the unfurl route when available. */
 export type LinkInput = {

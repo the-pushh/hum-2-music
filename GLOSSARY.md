@@ -5,7 +5,7 @@ The words hum's code and issues use, and what they mean here.
 ## Capture
 
 - **Sketch**: one song idea in progress: a title and the Ideas collected for it. Captured with no Sketch open, an Idea starts a new one.
-- **Idea**: one thing captured into a Sketch: a voice hum, lyrics, an image, a link, a color or a note. Ideas keep the order the songwriter gives them.
+- **Idea**: one thing captured into a Sketch: a voice hum, lyrics or an image. Sketches from before 28 Oct 2026 may also hold links, colors and notes, which still show but can no longer be added. Ideas keep the order the songwriter gives them.
 - **Take**: how a hum was recorded: its tempo, whether a click played, and the key chosen beforehand, if any. Hums without a click are measured at the reference tempo, 90 BPM.
 - **Transcription**: the notes hum heard in a hum: pending, failed, or done with raw notes, cleaned-up notes, a key and the cleanup settings.
 - **Note**: a pitch (MIDI number) with a start and a length in beats. Hums store velocity as 0–1; the studio as MIDI's 1–127.

@@ -12,7 +12,7 @@ export const ideaBg: Record<Exclude<Idea["kind"], "image" | "color">, string> = 
 };
 
 /** For the capture chips, including the kinds that have no card color of their own. */
-export const captureBg = { ...ideaBg, image: "bg-fx", color: "bg-bass" } as const;
+export const captureBg = { lyrics: ideaBg.lyrics, image: "bg-fx" } as const;
 
 /** A round button sitting on a bright card: dark on the card's color. Pair with sr-only text. */
 export const onColorButton =
