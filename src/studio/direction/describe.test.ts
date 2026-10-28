@@ -8,7 +8,11 @@ const context: DescribeContext = {
   key: "C",
   scale: "major",
   style: defaultStyle,
-  tracks: [{ id: "hum", name: "Hum 1", role: "melody", kind: "hummed melody", instrument: "piano" }],
+  tracks: [
+    { id: "hum", name: "Hum 1", role: "melody", kind: "hummed melody", instrument: "piano" },
+    { id: "beat", name: "Beat 1", role: "drums", kind: "hummed beat" },
+    { id: "chords", name: "Chords", role: "keys", kind: "generated" },
+  ],
 };
 
 /** A fake Claude call that answers with `reply`, or throws it. */
@@ -68,4 +72,19 @@ describe("reading a description", () => {
     expect(await readDescription({ description: "   ", context }, parse)).toEqual({ ok: false, error: "empty" });
     expect(parse).not.toHaveBeenCalled();
   });
+
+  it("passes through instruments for hummed melodies", async () => {
+    const voiced = { understood: true, summary: "Hum 1 on strings", instruments: [{ trackId: "hum", instrument: "strings" }] };
+    expect(await readDescription({ description: "hook on strings", context }, claude({ stop_reason: "end_turn", parsed_output: voiced }))).toEqual({ ok: true, direction: voiced });
+  });
+
+  it.each([
+    ["a track it wasn't told about", "nope"],
+    ["a hummed beat", "beat"],
+    ["a generated track", "chords"],
+  ])("calls an instrument for %s invalid", async (_, trackId) => {
+    const bad = { understood: true, summary: "x", instruments: [{ trackId, instrument: "strings" }] };
+    expect(await readDescription({ description: "x", context }, claude({ stop_reason: "end_turn", parsed_output: bad }))).toEqual({ ok: false, error: "invalid-output" });
+  });
 });
+

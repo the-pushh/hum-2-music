@@ -124,3 +124,24 @@ describe("changing key and mode", () => {
   });
 });
 
+describe("re-voicing tracks", () => {
+  it("plays a named hum on the instrument, in its role", () => {
+    const strings = applyDirection(project, direction({ instruments: [{ trackId: "hum", instrument: "strings" }] }));
+    expect(strings.tracks[0]).toMatchObject({ instrumentPreset: "hum-strings", color: "melody" });
+    const bass = applyDirection(project, direction({ instruments: [{ trackId: "hum", instrument: "bass" }] }));
+    expect(bass.tracks[0]).toMatchObject({ instrumentPreset: "hum-bass", color: "bass" });
+  });
+
+  it("leaves drum and generated tracks alone even if named", () => {
+    const generated = withGeneratedParts(project);
+    const drums = generated.tracks.find((t) => t.name === "Drums")!;
+    const chords = generated.tracks.find((t) => t.name === "Chords")!;
+    const changed = applyDirection(generated, direction({ instruments: [{ trackId: drums.id, instrument: "strings" }, { trackId: chords.id, instrument: "flute" }] }));
+    expect(changed.tracks).toEqual(generated.tracks);
+  });
+
+  it("rejects an unknown instrument", () => {
+    expect(directionSchema.safeParse({ understood: true, summary: "x", instruments: [{ trackId: "hum", instrument: "kazoo" }] }).success).toBe(false);
+  });
+});
+

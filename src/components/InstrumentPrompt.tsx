@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Check, Microphone, Stop } from "@phosphor-icons/react";
 import { canRecognizeSpeech, listenForPhrase, type Listening } from "@/audio/speech";
 import { instrumentIds, instruments, type InstrumentId } from "@/instruments/instruments";
+import { askClaudeForInstrument } from "@/instruments/askClaude";
 import { readInstruction } from "@/instruments/readInstruction";
 import { sketchStore } from "@/sketches/client";
 import type { VoiceIdea } from "@/sketches/types";
@@ -16,11 +17,13 @@ const chip =
 const roundButton =
   "inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-canvas/10 transition duration-300 ease-soft hover:bg-canvas/20 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-canvas disabled:opacity-50 aria-pressed:bg-canvas aria-pressed:text-ink";
 
-type Heard = { words: string; instrument: InstrumentId | undefined };
+/** What hum made of the songwriter's words; `asking` while Claude is reading words the keyword reader couldn't. */
+type Heard = { words: string; instrument: InstrumentId | undefined; asking?: boolean };
 
 /**
  * "What should it play as?" on a melody card: asked once its notes are ready, and again whenever the songwriter taps
  * the instrument to change it. Answered with a chip, or in words, typed or spoken, which hum reads and checks back.
+ * Words that name no instrument outright ("something dreamy and 80s") go to Claude.
  */
 export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea; onDone?: () => void; onDismiss?: () => void }) {
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +32,17 @@ export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea;
   const [listening, setListening] = useState(false);
   const [speech, setSpeech] = useState(false);
   const listenRef = useRef<Listening | null>(null);
+  const askRef = useRef<AbortController | null>(null);
 
   // Known only in the browser, after hydration.
   useEffect(() => setSpeech(canRecognizeSpeech()), []); // eslint-disable-line react-hooks/set-state-in-effect
-  useEffect(() => () => listenRef.current?.cancel(), []);
+  useEffect(
+    () => () => {
+      listenRef.current?.cancel();
+      askRef.current?.abort();
+    },
+    [],
+  );
 
   async function choose(instrument: InstrumentId) {
     setError(null);
@@ -46,15 +56,24 @@ export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea;
     }
   }
 
-  function read(text: string) {
+  async function read(text: string) {
     setError(null);
+    askRef.current?.abort();
     if (!text.trim()) return;
-    setHeard({ words: text, instrument: readInstruction(text) });
+    const instrument = readInstruction(text);
+    if (instrument) return setHeard({ words: text, instrument });
+    setHeard({ words: text, instrument: undefined, asking: true });
+    const controller = new AbortController();
+    askRef.current = controller;
+    const answer = await askClaudeForInstrument(idea, text, controller.signal);
+    if (controller.signal.aborted) return;
+    // Whatever went wrong, the nudge and the chips are still there.
+    setHeard({ words: text, instrument: "instrument" in answer ? answer.instrument : undefined });
   }
 
   function submit(e: FormEvent) {
     e.preventDefault();
-    read(words);
+    void read(words);
   }
 
   function listen() {
@@ -71,7 +90,7 @@ export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea;
       setListening(false);
       if ("error" in result) return setError(result.error);
       setWords(result.text);
-      read(result.text);
+      void read(result.text);
     });
   }
 
@@ -141,7 +160,13 @@ export function InstrumentPrompt({ idea, onDone, onDismiss }: { idea: VoiceIdea;
             </button>
           </div>
         )}
-        {heard && !heard.instrument && (
+        {heard?.asking && (
+          <span className="flex items-center gap-2 px-1 text-xs">
+            <span className="h-3 w-24 animate-pulse rounded-sm bg-canvas/20" aria-hidden />
+            Asking Claude what “{heard.words}” sounds like
+          </span>
+        )}
+        {heard && !heard.instrument && !heard.asking && (
           <span className="px-1 text-xs font-semibold">
             hum didn&apos;t catch an instrument in “{heard.words}”. Try “piano”, “strings” or “bass”, or tap one above.
           </span>
