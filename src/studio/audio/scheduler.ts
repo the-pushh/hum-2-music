@@ -33,7 +33,8 @@ import {
     toneTilt,
     transposedPitch,
 } from './clip-macros';
-import { createSynthFromPreset, waitForSynthReady, type ResolvedInstrument, type SynthType } from './synth-presets';
+import { humVoiceFor, isHumPreset, HumVoice } from './humVoices';
+import { createSynthFromPreset, waitForSynthReady, type ResolvedInstrument, type SynthType, type ToneSynthType } from './synth-presets';
 
 import type { Clip, Project, Track, TrackEffect } from '@/studio/types';
 
@@ -255,7 +256,7 @@ export function buildRenderPlan(project: Project): RenderPlan {
 // ============================================
 
 /** Wrap a built-in synth as a resolved instrument: nothing after the voice. */
-function bare(synth: SynthType): ResolvedInstrument {
+function bare(synth: ToneSynthType): ResolvedInstrument {
     return { synth, output: synth, nodes: [] };
 }
 
@@ -281,6 +282,11 @@ export function trackVoiceKey(track: Track): string {
  * track's musical role (its color) so a new track still makes a sensible sound.
  */
 export function createSynthForTrack(track: Track): ResolvedInstrument {
+    // hum: sampled piano and drums, one per track and kept between reschedules.
+    if (isHumPreset(track.instrumentPreset)) {
+        const voice = humVoiceFor(track, track.instrumentPreset);
+        return { synth: voice, output: voice.output, nodes: [] };
+    }
     if (track.instrumentPreset) {
         return bare(createSynthFromPreset(track.instrumentPreset));
     }
@@ -597,7 +603,7 @@ export async function scheduleMidiClip(
     // ready is silent, which is why both paths wait here.
     await waitForSynthReady(synth);
 
-    const isPolyphonic = synth instanceof Tone.PolySynth || synth instanceof Tone.Sampler;
+    const isPolyphonic = synth instanceof Tone.PolySynth || synth instanceof Tone.Sampler || synth instanceof HumVoice;
     const eventIds: number[] = [];
 
     for (const [timeKey, notes] of groupNotesByTime(planned)) {

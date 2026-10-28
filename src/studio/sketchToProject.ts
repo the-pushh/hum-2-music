@@ -1,6 +1,7 @@
 import { takeOf } from "@/melody/client";
 import { referenceBpm, type Note as HumNote } from "@/melody/types";
 import type { ArrangementInput, Idea, Sketch, VoiceIdea } from "@/sketches/types";
+import { humPresets } from "./audio/humVoices";
 import { NOTE_NAMES } from "./music";
 import type { Clip, Note, Project, Track } from "./types";
 
@@ -55,7 +56,7 @@ function melodyTrack(projectId: string, name: string, order: number): Track {
     muted: false,
     solo: false,
     armed: false,
-    instrumentPreset: "grand-piano",
+    instrumentPreset: humPresets.piano,
     order,
   };
 }

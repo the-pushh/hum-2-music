@@ -26,6 +26,7 @@
 // library never imports IndexedDB-backed state.
 
 import * as Tone from 'tone';
+import { HumVoice } from './humVoices';
 
 
 import { drumVoiceOptions, isDrumSpec, voiceOptions } from './instrument-spec';
@@ -38,7 +39,9 @@ import type { AnyInstrumentSpec, DrumSpec, InstrumentSpec, InstrumentVoice } fro
 // ============================================
 
 // Union type for all synths we might create
-export type SynthType = Tone.PolySynth | Tone.MonoSynth | Tone.MembraneSynth | Tone.NoiseSynth | Tone.Sampler;
+export type ToneSynthType = Tone.PolySynth | Tone.MonoSynth | Tone.MembraneSynth | Tone.NoiseSynth | Tone.Sampler;
+/** hum: a voice is a Tone synth, or one of hum's sampled instruments. */
+export type SynthType = ToneSynthType | HumVoice;
 
 /**
  * A constructed instrument, ready to schedule.
@@ -61,7 +64,7 @@ export interface SynthPreset {
     id: string;
     name: string;
     category: 'synth' | 'keys' | 'bass' | 'pad' | 'lead' | 'drums' | 'idiophones' | 'plucked-strings' | 'bowed-strings' | 'wind';
-    createSynth: () => SynthType;
+    createSynth: () => ToneSynthType;
 }
 
 // ============================================
@@ -140,19 +143,20 @@ export function createDrumVoice(spec: DrumSpec): Tone.MembraneSynth | Tone.Noise
  * registry cannot disagree about what a spec means — the same reason the
  * scheduler is the single place a clip becomes sound.
  */
-export function createSpecVoice(spec: AnyInstrumentSpec | null | undefined): SynthType {
+export function createSpecVoice(spec: AnyInstrumentSpec | null | undefined): ToneSynthType {
     if (!spec) return createVoice(spec);
     return isDrumSpec(spec) ? createDrumVoice(spec) : createVoice(spec);
 }
 
 /** A built-in preset's `createSynth`, resolved from its spec at call time. */
-const fromSpec = (presetId: string) => (): SynthType =>
+const fromSpec = (presetId: string) => (): ToneSynthType =>
     createSpecVoice((PRESET_SPECS as Record<string, AnyInstrumentSpec | null>)[presetId]);
 
 /**
  * Wait for a synth to be ready (mainly for Sampler which loads async)
  */
 export async function waitForSynthReady(synth: SynthType): Promise<void> {
+    if (synth instanceof HumVoice) await synth.ready;
     if (synth instanceof Tone.Sampler) {
         // Wait for all buffers to load
         await Tone.loaded();
@@ -581,7 +585,7 @@ export function getSynthPreset(presetId: string): SynthPreset | undefined {
  * function about the user registry would mean the built-in library importing
  * IndexedDB-backed state, and a genuine import cycle with it.
  */
-export function createSynthFromPreset(presetId: string | undefined): SynthType {
+export function createSynthFromPreset(presetId: string | undefined): ToneSynthType {
     const preset = presetId ? getSynthPreset(presetId) : undefined;
     if (preset) {
         return preset.createSynth();

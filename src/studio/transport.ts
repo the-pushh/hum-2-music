@@ -1,6 +1,7 @@
 "use client";
 
 import * as Tone from "tone";
+import { startedPlaying, stoppedPlaying } from "@/audio/exclusivePlayback";
 import { tone } from "@/audio/tone";
 import { audioEngine } from "./audio/engine";
 import { playoutManager } from "./audio/playout";
@@ -33,8 +34,15 @@ async function schedule(project: Project) {
   await playoutManager.scheduleProject(project);
 }
 
-/** Plays the arrangement from the top. Edits while playing are heard straight away. Call it from a tap. */
+/** The studio as one player, so it and a voice card's hum or piano never play over each other. */
+const player = { pause: () => stopProject() };
+
+/**
+ * Plays the arrangement from the top. Edits while playing are heard straight away. Call it from a tap.
+ * The first play waits for the piano and drum samples, which are cached for offline use after that.
+ */
 export async function playProject(project: Project): Promise<void> {
+  startedPlaying(player);
   await tone();
   await audioEngine.initialize();
   await playoutManager.initialize();
@@ -46,6 +54,7 @@ export async function playProject(project: Project): Promise<void> {
 }
 
 export function stopProject(): void {
+  stoppedPlaying(player);
   unfollow?.();
   unfollow = null;
   if (!audioEngine.isReady()) return;

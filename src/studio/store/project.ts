@@ -6,6 +6,7 @@
 // ============================================
 
 import { create } from 'zustand';
+import { humPresets, type HumPresetId } from '@/studio/audio/humVoices';
 import { temporal } from 'zundo';
 import { MACRO_NEUTRAL } from '@/studio/audio/clip-macros';
 import { vibeById } from '@/studio/music';
@@ -138,14 +139,15 @@ const getNextTrackColor = (tracks: Track[]): TrackColor => {
  * their first four notes. A pluck decays (`sustain: 0`), so an overlapping first
  * part comes out as music rather than a wall.
  */
-const DEFAULT_PRESET_FOR_COLOR: Record<TrackColor, SynthPresetId> = {
-    drums: 'synth-drum-kit',
+// hum: melody tracks play hum's sampled piano (the voice card's sound) and drums its sampled LM-2.
+const DEFAULT_PRESET_FOR_COLOR: Record<TrackColor, SynthPresetId | HumPresetId> = {
+    drums: humPresets.drums,
     bass: 'synth-bass',
     // The app's piano, since 8.7.6f. `electric-piano` is a bare sine and was the
     // default here — so a new Keys track started on the one waveform with
     // nothing below its fundamental for a speaker to find.
     keys: 'grand-piano',
-    melody: 'pluck-synth',
+    melody: humPresets.piano,
     fx: 'warm-pad',
     vocals: 'basic-synth',
 };

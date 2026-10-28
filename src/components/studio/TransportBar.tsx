@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
 import { ArrowClockwise, ArrowCounterClockwise, Minus, Play, Plus, Repeat, Stop } from "@phosphor-icons/react";
 import { useProjectStore } from "@/studio/store/project";
@@ -20,6 +20,22 @@ export function TransportBar() {
   const toggleLoop = usePlaybackStore((s) => s.toggleLoop);
   const { undo, redo, pastStates, futureStates } = useStore(useProjectStore.temporal);
   const positionRef = useRef<HTMLSpanElement>(null);
+  const [starting, setStarting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function start() {
+    if (!project) return;
+    setStarting(true);
+    setError(null);
+    try {
+      await playProject(project);
+    } catch {
+      stopProject();
+      setError("The instruments couldn't load. Check your connection and try again.");
+    } finally {
+      setStarting(false);
+    }
+  }
 
   // The position updates every frame without re-rendering React.
   useEffect(() => {
@@ -45,12 +61,14 @@ export function TransportBar() {
     <div className="flex flex-wrap items-center gap-2 rounded-2xl bg-surface p-2">
       <button
         type="button"
-        onClick={() => (playing ? stopProject() : void playProject(project))}
+        onClick={() => (playing ? stopProject() : void start())}
         aria-pressed={playing}
-        className="inline-flex size-12 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-ink transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+        disabled={starting}
+        aria-busy={starting}
+        className="inline-flex size-12 shrink-0 items-center justify-center rounded-lg bg-accent text-accent-ink transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:animate-pulse"
       >
         {playing ? <Stop size={24} weight="fill" aria-hidden /> : <Play size={24} weight="fill" aria-hidden />}
-        <span className="sr-only">{playing ? "Stop" : "Play"}</span>
+        <span className="sr-only">{playing ? "Stop" : starting ? "Loading instruments" : "Play"}</span>
       </button>
       <span className="flex flex-col px-2">
         <span className="text-xs text-ink-muted">Bar</span>
@@ -78,6 +96,11 @@ export function TransportBar() {
       <span className="text-sm text-ink-muted">
         {project.key.replace("#", "♯")} {project.scale}
       </span>
+      {error && (
+        <p role="alert" className="w-full text-sm text-accent">
+          {error}
+        </p>
+      )}
       <div className="ml-auto flex">
         <button type="button" className={iconButton} disabled={!pastStates.length} onClick={() => undo()}>
           <ArrowCounterClockwise size={20} aria-hidden />
