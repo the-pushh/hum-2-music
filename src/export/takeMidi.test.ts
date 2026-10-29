@@ -36,7 +36,7 @@ function readBack(bytes: Uint8Array) {
 }
 
 describe("a take as a MIDI file", () => {
-  it("holds the notes the card shows, in beats, at the take's tempo", () => {
+  it("holds the notes the card shows, in beats, at the take's tempo and the loudness the card plays them at", () => {
     const { notes, drums } = heardNotes(idea(melody))!;
     expect(readBack(takeMidi({ notes, drums, bpm: 120, name: "Hum" }))).toEqual({
       bpm: 120,
@@ -46,9 +46,10 @@ describe("a take as a MIDI file", () => {
           channel: 0,
           percussion: false,
           notes: [
-            [60, 0, 1, 102],
-            [64, 1, 1, 102],
-            [67, 2, 2, 127],
+            // 0.8 and 1 on the card's 40–110 range, never MIDI's full 127.
+            [60, 0, 1, 96],
+            [64, 1, 1, 96],
+            [67, 2, 2, 110],
           ],
         },
       ],
@@ -65,9 +66,10 @@ describe("a take as a MIDI file", () => {
     const file = readBack(takeMidi({ notes, drums, bpm: 90, name: "Beat" }));
     expect(file.bpm).toBe(90);
     expect(file.tracks[0]).toMatchObject({ channel: 9, percussion: true });
-    expect(file.tracks[0].notes.map(([pitch, start]) => [pitch, start])).toEqual([
-      [36, 0],
-      [38, 1],
+    // Hits keep their full range, as the drum machine plays them.
+    expect(file.tracks[0].notes.map(([pitch, start, , velocity]) => [pitch, start, velocity])).toEqual([
+      [36, 0, 127],
+      [38, 1, 64],
     ]);
   });
 

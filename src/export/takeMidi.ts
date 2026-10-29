@@ -1,6 +1,7 @@
 import { Midi } from "@tonejs/midi";
 import type { Note } from "@/melody/types";
 import type { VoiceIdea } from "@/sketches/types";
+import { sampleVelocity } from "./takeEvents";
 
 /** General MIDI's drum channel (10, counted from 0). */
 const drumChannel = 9;
@@ -29,8 +30,10 @@ export function takeMidi({ notes, drums, bpm, name }: { notes: Note[]; drums: bo
   track.channel = drums ? drumChannel : 0;
   const secPerBeat = 60 / bpm;
   for (const n of notes) {
-    // Rounded to a whole MIDI velocity first: the file format floors, which would turn 0.8 (101.6) into 101.
-    const velocity = Math.min(127, Math.max(1, Math.round(n.velocity * 127))) / 127;
+    // Melody notes at the loudness the card plays them (its 40–110 range): the full 127 makes most DAW instruments
+    // much brighter and harsher than the hum sounded. Whole MIDI velocities first, since the file format floors.
+    const midiVelocity = drums ? Math.round(n.velocity * 127) : sampleVelocity(n.velocity);
+    const velocity = Math.min(127, Math.max(1, midiVelocity)) / 127;
     track.addNote({ midi: n.pitch, time: n.start * secPerBeat, duration: n.duration * secPerBeat, velocity });
   }
   return midi.toArray();
