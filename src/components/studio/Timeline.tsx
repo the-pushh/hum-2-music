@@ -2,6 +2,7 @@
 
 import { DotsThree, GridFour, Minus, PianoKeys, Plus } from "@phosphor-icons/react";
 import { isTrackAudible } from "@/studio/audio/scheduler";
+import { isClaudePart } from "@/studio/generate/parts";
 import { useProjectStore } from "@/studio/store/project";
 import { usePlaybackStore } from "@/studio/store/playback";
 import { arrangementBars, playedBars } from "@/studio/transport";
@@ -190,6 +191,11 @@ function TrackCard({ track, tracks, selected, onSelect }: { track: Track; tracks
       >
         <Icon size={16} aria-hidden className="shrink-0" />
         <span className="truncate text-sm font-semibold">{track.name}</span>
+        {isClaudePart(track) && (
+          <span className="shrink-0 rounded-full bg-canvas/10 px-2 py-0.5 text-xs font-semibold">
+            <span className="sr-only">, written by </span>Claude
+          </span>
+        )}
         <span className="sr-only">, edit notes</span>
       </button>
       <div className="flex gap-1 self-end sm:self-auto">

@@ -38,6 +38,8 @@ export interface Project {
     swing?: number;
     /** hum: how the generated parts play. Absent means the default Style, so older arrangements sound the same. */
     style?: Style;
+    /** hum: the Style Claude last wrote parts in, to tell when its parts no longer follow the current one. */
+    claudeWroteIn?: Style;
 }
 
 export type MusicalKey = 'C' | 'C#' | 'D' | 'D#' | 'E' | 'F' | 'F#' | 'G' | 'G#' | 'A' | 'A#' | 'B';

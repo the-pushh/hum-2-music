@@ -12,6 +12,7 @@ import { DrumGrid } from "./DrumGrid";
 import { FloatingTransport } from "./FloatingTransport";
 import { PianoRoll } from "./PianoRoll";
 import { roleBg } from "./roleColors";
+import { StyleDriftNotice } from "./StyleDriftNotice";
 import { Timeline } from "./Timeline";
 
 /** A Sketch's studio: its hums and beats as tracks on a timeline you can play, edit and fill out. */
@@ -76,6 +77,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
       ) : (
         <>
           <Timeline title={sketch?.title ?? "Studio"} selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />
+          <StyleDriftNotice />
           <DescribeBox />
           {!project.clips.length && (
             <p className="px-2 text-sm text-ink-muted">

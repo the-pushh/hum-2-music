@@ -85,7 +85,18 @@ export function withClaudeParts(project: Project, written: Partial<Record<Part, 
     tracks = existing ? tracks.map((t) => (t.id === track.id ? track : t)) : [...tracks, track];
     clips = [...clips.filter((c) => c.trackId !== track.id), clipFor(track, plan, notes.map(note))];
   }
-  return { ...project, tracks, clips };
+  return { ...project, tracks, clips, claudeWroteIn: plan.style };
+}
+
+/**
+ * Whether the arrangement's Claude-written parts still follow its Style: true until the Style changes after Claude
+ * wrote them, and true when there are no Claude parts to follow it.
+ */
+export function claudePartsFollowStyle(project: Project): boolean {
+  if (!project.tracks.some(isClaudePart)) return true;
+  const now = project.style ?? defaultStyle;
+  const then = project.claudeWroteIn ?? defaultStyle;
+  return (Object.keys(now) as (keyof Style)[]).every((k) => now[k] === then[k]);
 }
 
 function clipFor(track: Track, plan: Plan, notes: Note[]): Clip {

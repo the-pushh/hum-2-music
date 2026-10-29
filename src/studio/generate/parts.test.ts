@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Clip, Note, Project, Track } from "@/studio/types";
-import { withClaudeParts, withGeneratedParts, withStyle } from "./parts";
+import { claudePartsFollowStyle, withClaudeParts, withGeneratedParts, withStyle } from "./parts";
 
 const melodyTrack: Track = {
   id: "hum",
@@ -262,6 +262,33 @@ describe("putting Claude's parts in the arrangement", () => {
     const withBeat = { ...project, tracks: [melodyTrack, beat] };
     const next = withClaudeParts(withBeat, { drums: [{ pitch: 36, startBeat: 0, duration: 0.25, velocity: 100 }] });
     expect(next.tracks.map((t) => t.name)).toEqual(["Hum 1", "Beat 1"]);
+  });
+});
+
+describe("whether Claude's parts follow the Style", () => {
+  const chords = [60, 64, 67].map((pitch) => ({ pitch, startBeat: 0, duration: 4, velocity: 70 }));
+
+  it("follow it right after Claude writes them", () => {
+    expect(claudePartsFollowStyle(withClaudeParts(project, { chords }))).toBe(true);
+  });
+
+  it("stop following it when the Style changes under them", () => {
+    const written = withClaudeParts(project, { chords });
+    expect(claudePartsFollowStyle(withStyle(written, { drums: "half-time" }))).toBe(false);
+  });
+
+  it("follow it again once Claude writes in the new Style", () => {
+    const changed = withStyle(withClaudeParts(project, { chords }), { drums: "half-time" });
+    expect(claudePartsFollowStyle(withClaudeParts(changed, { chords }))).toBe(true);
+  });
+
+  it("have nothing to follow once Generate parts replaces them", () => {
+    const changed = withStyle(withClaudeParts(project, { chords }), { drums: "half-time" });
+    expect(claudePartsFollowStyle(withGeneratedParts(changed))).toBe(true);
+  });
+
+  it("have nothing to follow when Claude wrote nothing", () => {
+    expect(claudePartsFollowStyle(withStyle(withGeneratedParts(project), { drums: "half-time" }))).toBe(true);
   });
 });
 
