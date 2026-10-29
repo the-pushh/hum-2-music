@@ -90,7 +90,7 @@ export function freeSpot(taken: Rect[], { w, h }: Size, near: Place, gap = CARD_
 }
 
 /**
- * The view the page opens at, and Reset view returns to: actual size, from the top of everything on it, like the page
+ * The view the page opens at, and Reset canvas returns to: actual size, from the top of everything on it, like the page
  * before it was a canvas. Centred when it fits the screen, otherwise from its left edge.
  */
 export function pageView(pieces: Rect[], viewport: Size): View {
