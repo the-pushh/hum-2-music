@@ -12,6 +12,7 @@ import { Button } from "./Button";
 import { Choice } from "./Choice";
 import { HitStrip } from "./HitStrip";
 import { PlayTakeButton } from "./PlayTakeButton";
+import { TakeExport } from "./TakeExport";
 
 /** The hits hum heard in a beat take: hearing status, a kick, snare and hat strip, and the drum machine to play them on. */
 export function BeatPanel({ idea }: { idea: VoiceIdea }) {
@@ -99,6 +100,7 @@ export function BeatPanel({ idea }: { idea: VoiceIdea }) {
           )}
         </div>
       </div>
+      <TakeExport idea={idea} />
       {error && (
         <span role="alert" className="text-xs font-semibold">
           Couldn&apos;t save that change. Try again.

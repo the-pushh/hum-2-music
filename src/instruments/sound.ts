@@ -3,6 +3,8 @@
 import { CacheStorage, ElectricPiano, Soundfont, SplendidGrandPiano } from "smplr";
 import { instruments, type InstrumentId } from "./instruments";
 
+export { sampleVelocity } from "@/export/takeEvents";
+
 /** What hum needs from any smplr instrument. */
 export type Sound = {
   readonly ready: Promise<unknown>;
@@ -31,10 +33,6 @@ export function createSound(context: BaseAudioContext, id: InstrumentId, destina
   }
 }
 
-/** hum's 0–1 velocity on the 40–110 range the samples were picked for, so a hum sounds the same on the card and in the studio. */
-export function sampleVelocity(velocity: number): number {
-  return Math.round(40 + velocity * 70);
-}
 
 function range(from: number, to: number) {
   return Array.from({ length: to - from + 1 }, (_, i) => from + i);

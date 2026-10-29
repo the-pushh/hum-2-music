@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useStore } from "zustand";
-import { ArrowClockwise, ArrowCounterClockwise, DownloadSimple, MagicWand, Play, Repeat, Stop } from "@phosphor-icons/react";
+import { ArrowClockwise, ArrowCounterClockwise, DownloadSimple, Play, Repeat, Stop } from "@phosphor-icons/react";
 import { downloadProjectAsMidi } from "@/studio/audio/export";
-import { withGeneratedParts } from "@/studio/generate/parts";
 import { useProjectStore } from "@/studio/store/project";
 import { usePlaybackStore } from "@/studio/store/playback";
 import { playProject, playheadBars, stopProject } from "@/studio/transport";
@@ -14,8 +13,8 @@ const pillButton =
   "inline-flex size-10 shrink-0 items-center justify-center gap-2 rounded-full text-ink transition duration-300 ease-soft hover:bg-line active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink disabled:pointer-events-none disabled:opacity-50 aria-pressed:bg-line";
 
 /**
- * The studio's transport, floating at the bottom of the screen: play, where the playhead is, loop, undo and redo,
- * generate parts, and export.
+ * The studio's transport, floating at the bottom of the screen: play, where the playhead is, loop, undo and redo, and
+ * export.
  */
 export function FloatingTransport() {
   const project = useProjectStore((s) => s.project);
@@ -46,7 +45,6 @@ export function FloatingTransport() {
   }, [playing, project?.timeSignature]);
 
   if (!project) return null;
-  const generated = project.tracks.some((t) => t.origin?.kind === "generated");
   const hasNotes = project.clips.some((c) => c.notes?.length);
 
   async function start() {
@@ -98,17 +96,6 @@ export function FloatingTransport() {
           <span className="sr-only">Redo</span>
         </button>
         <span className="mx-1 h-6 w-px bg-line" aria-hidden />
-        <button
-          type="button"
-          className={`${pillButton} sm:w-auto sm:px-3`}
-          onClick={() => {
-            const current = useProjectStore.getState().project;
-            if (current) useProjectStore.getState().loadProject(withGeneratedParts(current));
-          }}
-        >
-          <MagicWand size={20} aria-hidden />
-          <span className="sr-only sm:not-sr-only sm:text-sm sm:font-semibold">{generated ? "Generate again" : "Generate parts"}</span>
-        </button>
         <button type="button" className={pillButton} disabled={!hasNotes} onClick={() => downloadProjectAsMidi(project)}>
           <DownloadSimple size={20} aria-hidden />
           <span className="sr-only">Export MIDI</span>

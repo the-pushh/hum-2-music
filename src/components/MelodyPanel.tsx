@@ -12,6 +12,7 @@ import { CleanupControls } from "./CleanupControls";
 import { NoteStrip } from "./NoteStrip";
 import { InstrumentPrompt } from "./InstrumentPrompt";
 import { PlayTakeButton } from "./PlayTakeButton";
+import { TakeExport } from "./TakeExport";
 
 const dismissedKey = "hum.instrumentPromptDismissed";
 
@@ -135,6 +136,7 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
         </div>
         <CleanupControls idea={idea} />
       </div>
+      <TakeExport idea={idea} />
     </div>
   );
 }

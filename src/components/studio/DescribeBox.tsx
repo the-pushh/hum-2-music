@@ -102,7 +102,7 @@ export function DescribeBox() {
           id="describe-it"
           value={words}
           onChange={(e) => setWords(e.target.value)}
-          placeholder="Describe it: “slower, half time, chill”"
+          placeholder="Describe it: “slower, in D, hook on strings”"
           maxLength={500}
           enterKeyHint="send"
           className="h-10 min-w-0 flex-1 bg-transparent text-base text-ink placeholder:text-ink-muted focus-visible:outline-none"
@@ -147,7 +147,7 @@ export function DescribeBox() {
         )}
         {state.status === "read" && !state.direction.understood && (
           <p className="text-sm text-ink">
-            hum didn&apos;t find anything to change in that. Try the tempo (“around 80”), the key (“in D”, “darker”), the drums (“four on the floor”), the chords (“lush”), the bass (“walking”), the energy (“chill”) or a sound (“the hook on strings”).
+            hum didn&apos;t find anything to change in that. Try the tempo (“around 80”), the key (“in D”, “darker”) or a sound (“the hook on strings”).
           </p>
         )}
         {state.status === "failed" && (

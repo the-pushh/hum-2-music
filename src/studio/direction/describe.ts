@@ -23,15 +23,10 @@ What you can change:
 - key: the tonic, one of C C# D D# E F F# G G# A A# B. "In D" means D. "Up a tone" or "down a semitone" moves from the current key. The whole song moves with it, hummed melodies included.
 - scale: major or minor. "Darker", "sadder" or "moody" mean minor; "brighter" or "happier" mean major. Only change it when the words ask for a mood or mode.
 - instruments: re-voice the songwriter's hummed melodies, by track id from the arrangement. Only tracks of kind "hummed melody" can be re-voiced. Instruments: piano, electric-piano (keys, Rhodes), strings, bass, guitar, synth-lead, pad, flute, brass. Work out which track they mean from names ("Hum 2"), order ("the first hum") or role ("the melody", "the hook" usually means the first hummed melody).
-- style.drums: pop-rock (kick on 1 and 3, snare on 2 and 4), four-on-the-floor (dance, house, disco), half-time (heavy, slow-feeling, trap-like), boom-bap (hip hop), none.
-- style.chords: triads (simple, plain), sevenths (lush, jazzy, soulful, dreamy), none.
-- style.chordRhythm: held (pads, long chords), pulsing (driving, rhythmic, stabs).
-- style.bass: roots (simple), octaves (disco, driving), walking (jazzy, moving), none.
-- style.energy: low (chill, soft, laid back, sparse), medium, high (big, loud, busy, energetic).
 
-Leave out anything the words don't ask for. Moods map to style where it's clear ("chill" is low energy; "dancey" is four-on-the-floor). If nothing in the words maps to a change you can make, set understood to false and leave the summary empty.
+Leave out anything the words don't ask for. If nothing in the words maps to a change you can make, set understood to false and leave the summary empty.
 
-The summary is one short line the songwriter sees before applying, written without hyphens ("half time", not "half-time"), naming each change in a few words, separated by " · ", like "72 BPM · half time drums · low energy". Name a re-voiced track as "Hum 1 on strings". Name a key change as "in D", and a mode change as "moved to minor" or "moved to major", so the songwriter knows their melody will change. No other text.`;
+The summary is one short line the songwriter sees before applying, written without hyphens ("half time", not "half-time"), naming each change in a few words, separated by " · ", like "72 BPM · in D · Hum 1 on strings". Name a re-voiced track as "Hum 1 on strings". Name a key change as "in D", and a mode change as "moved to minor" or "moved to major", so the songwriter knows their melody will change. No other text.`;
 
 /**
  * Reads a songwriter's description of their song into a Direction with Claude. Only the words and the arrangement's
