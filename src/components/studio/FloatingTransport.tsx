@@ -44,6 +44,30 @@ export function FloatingTransport() {
     return () => cancelAnimationFrame(frame);
   }, [playing, project?.timeSignature]);
 
+  // Space plays and stops from anywhere in the studio, as in a DAW, except where it types or picks: text fields,
+  // selects, checkboxes. A focused button doesn't take it (Enter still presses buttons).
+  useEffect(() => {
+    const isSpace = (e: KeyboardEvent) =>
+      e.code === "Space" && !e.metaKey && !e.ctrlKey && !e.altKey && !(e.target as HTMLElement | null)?.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+    function onKeyDown(e: KeyboardEvent) {
+      if (!isSpace(e) || e.defaultPrevented) return;
+      e.preventDefault();
+      if (e.repeat) return;
+      if (playing) stopProject();
+      else if (!starting) void start();
+    }
+    // Buttons press on Space's keyup, so that's held back too.
+    function onKeyUp(e: KeyboardEvent) {
+      if (isSpace(e)) e.preventDefault();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    window.addEventListener("keyup", onKeyUp);
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+      window.removeEventListener("keyup", onKeyUp);
+    };
+  });
+
   if (!project) return null;
   const hasNotes = project.clips.some((c) => c.notes?.length);
 
