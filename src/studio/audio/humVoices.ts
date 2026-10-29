@@ -32,7 +32,7 @@ export class HumVoice {
     const destination = this.output.input as unknown as AudioNode;
     const melodic = instrumentOfPreset(kind);
     this.drums = !melodic;
-    this.instrument = melodic ? createSound(context, melodic, destination) : createDrums(context, destination);
+    this.instrument = melodic ? createSound(context, melodic, { destination }) : createDrums(context, { destination });
     this.ready = this.instrument.ready.then(() => undefined);
   }
 

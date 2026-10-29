@@ -19,7 +19,7 @@ function fileName(idea: VoiceIdea, drums: boolean, extension: string) {
 }
 
 /** Phones hand files to the share sheet (AirDrop, Files, other apps); computers download them or drag them out. */
-async function deliver({ file, url }: Ready) {
+async function deliver(file: File) {
   const phone = typeof matchMedia !== "undefined" && matchMedia("(pointer: coarse)").matches;
   if (phone && navigator.canShare?.({ files: [file] })) {
     try {
@@ -30,10 +30,29 @@ async function deliver({ file, url }: Ready) {
       if (err instanceof DOMException && err.name === "AbortError") return;
     }
   }
+  // A link of its own, so the download never depends on the one kept for dragging.
+  const url = URL.createObjectURL(file);
   const a = document.createElement("a");
   a.href = url;
   a.download = file.name;
   a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/**
+ * A file with a link that lives as long as the file does. The link is made in an effect, beside the cleanup that frees
+ * it: made during render, React's dev double run frees it on mount and the chip is left holding a dead link.
+ */
+function useReady(file: File | null): Ready | null {
+  const [ready, setReady] = useState<Ready | null>(null);
+  useEffect(() => {
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+    setReady({ file, url }); // eslint-disable-line react-hooks/set-state-in-effect
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  // A link made for an earlier file is already freed, so it's never handed out.
+  return ready?.file === file ? ready : null;
 }
 
 /**
@@ -57,40 +76,38 @@ export function TakeExport({ idea }: { idea: VoiceIdea }) {
   const heard = heardNotes(idea);
   const bpm = takeOf(idea).bpm;
   const instrument = idea.instrument ?? defaultInstrument;
-  const [audio, setAudio] = useState<Ready | null>(null);
+  const [audioFile, setAudioFile] = useState<File | null>(null);
   const [rendering, setRendering] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Live queries hand back fresh objects on every read, so the file is keyed on what's in it, not on object identity:
-  // otherwise it would be rebuilt (and its URL revoked) on almost every render, mid-drag included.
+  // otherwise it would be rebuilt (and its link freed) on almost every render, mid-drag included.
   const contents = heard ? `${bpm}|${heard.drums}|${heard.notes.map((n) => `${n.pitch}:${n.start}:${n.duration}:${n.velocity}`).join(" ")}` : "";
 
   // The MIDI file is small and quick, so it's ready before anyone drags it.
-  const midi = useMemo<Ready | null>(() => {
+  const midiFile = useMemo<File | null>(() => {
     if (!heard) return null;
     const bytes = takeMidi({ notes: heard.notes, drums: heard.drums, bpm, name: heard.drums ? "Beat" : "Melody" });
-    const file = new File([bytes.slice()], fileName(idea, heard.drums, "mid"), { type: "audio/midi" });
-    return { file, url: URL.createObjectURL(file) };
+    return new File([bytes.slice()], fileName(idea, heard.drums, "mid"), { type: "audio/midi" });
   }, [contents, idea.createdAt]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => () => (midi ? URL.revokeObjectURL(midi.url) : undefined), [midi]);
+  const midi = useReady(midiFile);
 
   // A rendered WAV belongs to these notes on this instrument: any change means rendering again.
-  useEffect(() => setAudio(null), [midi, instrument]); // eslint-disable-line react-hooks/set-state-in-effect
-  useEffect(() => () => (audio ? URL.revokeObjectURL(audio.url) : undefined), [audio]);
+  useEffect(() => setAudioFile(null), [midiFile, instrument]); // eslint-disable-line react-hooks/set-state-in-effect
+  const audio = useReady(audioFile);
 
-  if (!heard || !midi) return null;
+  if (!heard || !midiFile) return null;
 
   async function exportAudio() {
-    if (audio) return deliver(audio);
+    if (audioFile) return deliver(audioFile);
     if (!heard) return;
     setRendering(true);
     setError(null);
     try {
       const wav = await takeAudio({ notes: heard.notes, drums: heard.drums, bpm, instrument });
       const file = new File([wav], fileName(idea, heard.drums, "wav"), { type: "audio/wav" });
-      const ready = { file, url: URL.createObjectURL(file) };
-      setAudio(ready);
-      await deliver(ready);
+      setAudioFile(file);
+      await deliver(file);
     } catch {
       setError("The audio couldn't be made. Check your connection (the instrument may need to load) and try again.");
     } finally {
@@ -102,7 +119,7 @@ export function TakeExport({ idea }: { idea: VoiceIdea }) {
     <div className="flex flex-col gap-1">
       <div role="group" aria-label="Export to a DAW" className="flex flex-wrap items-center gap-2">
         <span className="text-xs font-semibold opacity-70">To your DAW</span>
-        <button type="button" draggable onDragStart={(e) => dragOut(e, midi)} onClick={() => void deliver(midi)} className={chip} title="Tap to share or download. Drag into your DAW in Chrome or Edge.">
+        <button type="button" draggable onDragStart={(e) => dragOut(e, midi)} onClick={() => void deliver(midiFile)} className={chip} title="Tap to share or download. Drag into your DAW in Chrome or Edge.">
           <MusicNotesSimple size={16} aria-hidden />
           MIDI
         </button>

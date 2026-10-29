@@ -1,6 +1,6 @@
 "use client";
 
-import { CacheStorage, ElectricPiano, Soundfont, SplendidGrandPiano } from "smplr";
+import { CacheStorage, ElectricPiano, type Scheduler, Soundfont, SplendidGrandPiano } from "smplr";
 import { instruments, type InstrumentId } from "./instruments";
 
 export { sampleVelocity } from "@/export/takeEvents";
@@ -17,19 +17,26 @@ export type Sound = {
 const melodyRange = { notes: range(36, 96), velocityRange: [40, 110] as [number, number], fallback: "nearest" as const };
 
 /**
- * A new smplr instrument for one of hum's instruments, playing into `destination` (the speakers if none). Samples are
- * kept in the Cache API, so each instrument plays offline after its first load.
+ * Where an instrument plays (the speakers if no `destination`) and what times its notes. An offline render needs a
+ * `scheduler` whose lookahead covers the whole take: smplr's own holds back notes more than 200 ms ahead for a timer
+ * to release, and an offline render's clock doesn't move until it has finished.
  */
-export function createSound(context: BaseAudioContext, id: InstrumentId, destination?: AudioNode): Sound {
+export type SoundOptions = { destination?: AudioNode; scheduler?: Scheduler };
+
+/**
+ * A new smplr instrument for one of hum's instruments. Samples are kept in the Cache API, so each instrument plays
+ * offline after its first load.
+ */
+export function createSound(context: BaseAudioContext, id: InstrumentId, { destination, scheduler }: SoundOptions = {}): Sound {
   const sound = instruments[id].sound;
   const ctx = context as AudioContext;
   switch (sound.kind) {
     case "grand":
-      return SplendidGrandPiano(ctx, { destination, storage: CacheStorage("hum-piano"), notesToLoad: melodyRange });
+      return SplendidGrandPiano(ctx, { destination, scheduler, storage: CacheStorage("hum-piano"), notesToLoad: melodyRange });
     case "electric":
-      return ElectricPiano(ctx, { destination, instrument: sound.name, storage: CacheStorage("hum-instruments") });
+      return ElectricPiano(ctx, { destination, scheduler, instrument: sound.name, storage: CacheStorage("hum-instruments") });
     case "soundfont":
-      return Soundfont(ctx, { destination, instrument: sound.name, kit: "FluidR3_GM", storage: CacheStorage("hum-instruments") });
+      return Soundfont(ctx, { destination, scheduler, instrument: sound.name, kit: "FluidR3_GM", storage: CacheStorage("hum-instruments") });
   }
 }
 
