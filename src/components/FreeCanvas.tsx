@@ -11,13 +11,14 @@ import {
   type DragEndEvent,
   type Modifier,
 } from "@dnd-kit/core";
-import { FrameCorners } from "@phosphor-icons/react";
+import { ArrowCounterClockwise, FrameCorners } from "@phosphor-icons/react";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useRef, useState, useSyncExternalStore, type KeyboardEvent, type ReactNode } from "react";
 import { TransformComponent, TransformWrapper, useTransformEffect, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
 import { sketchStore } from "@/sketches/client";
 import type { Place } from "@/sketches/types";
 import { canvasControl, freeSpot, pageView, type Rect, type Size } from "@/ui/canvasLayout";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 /** Arrow keys move a focused piece this far; with Shift, four times as far. */
 const KEY_STEP = 24;
@@ -94,7 +95,7 @@ type Props = {
 /**
  * A whole page as a freeform canvas. Every piece can be dragged anywhere (or moved with the arrow keys while it has
  * focus); drag the background, scroll or swipe to pan; pinch or Ctrl and scroll to zoom. It opens as the page always
- * looked, and Reset view goes back to that view.
+ * looked. Reset view goes back to that view; Reset layout (after asking) puts every piece back where it started.
  */
 export function FreeCanvas({ layoutId, pieces, firstLayout, overlay }: Props) {
   // undefined while loading; empty for a page nothing has been placed on.
@@ -108,6 +109,7 @@ export function FreeCanvas({ layoutId, pieces, firstLayout, overlay }: Props) {
   const [front, setFront] = useState<string[]>([]);
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmingReset, setConfirmingReset] = useState(false);
   // A mouse pans from the background only; a finger pans from anywhere, and holds a piece to lift it.
   const [mouse] = useState(() => typeof matchMedia !== "undefined" && matchMedia("(pointer: fine)").matches);
   const viewed = useRef(false);
@@ -186,6 +188,18 @@ export function FreeCanvas({ layoutId, pieces, firstLayout, overlay }: Props) {
     setMoved((m) => ({ ...m, [id]: rounded }));
     setFront((f) => [...f.filter((i) => i !== id), id]);
     void attempt(() => sketchStore().placePiece(layoutId, id, rounded), "That piece's new spot couldn't be saved. Try moving it again.");
+  }
+
+  /** Puts every piece back where the page first had it, then shows the page from the top. */
+  async function resetLayout() {
+    setConfirmingReset(false);
+    setMoved({});
+    setAuto({});
+    setFront([]);
+    lastPut.current = {};
+    // Shown again once everything has its first place back.
+    viewed.current = false;
+    await attempt(() => sketchStore().resetLayout(layoutId), "The layout couldn't be reset. Try again.");
   }
 
   const sensors = useSensors(
@@ -305,19 +319,32 @@ export function FreeCanvas({ layoutId, pieces, firstLayout, overlay }: Props) {
           {error}
         </p>
       )}
-      <button
-        type="button"
-        onClick={() => showPage(true)}
-        title="Reset view"
-        className="absolute top-4 right-4 inline-flex size-10 items-center justify-center rounded-full border border-line bg-surface text-ink transition duration-300 ease-soft hover:bg-raised active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-      >
-        <FrameCorners size={20} aria-hidden />
-        <span className="sr-only">Reset view</span>
-      </button>
+      <div className="absolute top-4 right-4 flex gap-2">
+        <button type="button" onClick={() => setConfirmingReset(true)} title="Reset layout" className={viewButton}>
+          <ArrowCounterClockwise size={20} aria-hidden />
+          <span className="sr-only">Reset layout</span>
+        </button>
+        <button type="button" onClick={() => showPage(true)} title="Reset view" className={viewButton}>
+          <FrameCorners size={20} aria-hidden />
+          <span className="sr-only">Reset view</span>
+        </button>
+      </div>
+      {confirmingReset && (
+        <ConfirmDialog
+          title="Reset this page's layout?"
+          body="Everything on this page goes back to where it started. Nothing in it is deleted or changed."
+          confirmLabel="Reset layout"
+          onConfirm={() => void resetLayout()}
+          onCancel={() => setConfirmingReset(false)}
+        />
+      )}
       {overlay}
     </div>
   );
 }
+
+const viewButton =
+  "inline-flex size-10 items-center justify-center rounded-full border border-line bg-surface text-ink transition duration-300 ease-soft hover:bg-raised active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 
 type PieceProps = {
   id: string;

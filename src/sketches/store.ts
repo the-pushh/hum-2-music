@@ -159,6 +159,11 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
+  /** Forgets everything placed on a page, so it's laid out again as it first was. */
+  async function resetLayout(layoutId: string): Promise<void> {
+    await db.layouts.delete(layoutId);
+  }
+
   async function forgetPiece(layoutId: string, pieceId: string) {
     const layout = await db.layouts.get(layoutId);
     if (!layout || !(pieceId in layout.places)) return;
@@ -190,7 +195,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, removeIdea, capture, getArrangement, saveArrangement, getLayout, placePiece, layOutPieces };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, removeIdea, capture, getArrangement, saveArrangement, getLayout, placePiece, layOutPieces, resetLayout };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

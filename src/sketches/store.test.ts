@@ -357,6 +357,15 @@ describe("sketch store", () => {
       expect((await store.getLayout("home"))?.places).toEqual({ title: { x: 5, y: 5 }, capture: { x: 0, y: 120 } });
     });
 
+    it("resets a page's layout, leaving other pages alone", async () => {
+      const store = freshStore();
+      await store.placePiece("sketch:a", "title", { x: 40, y: 80 });
+      await store.placePiece("home", "title", { x: 1, y: 1 });
+      await store.resetLayout("sketch:a");
+      expect(await store.getLayout("sketch:a")).toBeUndefined();
+      expect((await store.getLayout("home"))?.places).toEqual({ title: { x: 1, y: 1 } });
+    });
+
     it("doesn't move a sketch up the list when its page is arranged", async () => {
       const store = freshStore();
       const older = await store.createSketch("Older");
