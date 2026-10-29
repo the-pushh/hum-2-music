@@ -319,9 +319,9 @@ export function FreeCanvas({ layoutId, pieces, firstLayout, overlay }: Props) {
           {error}
         </p>
       )}
-      <button type="button" onClick={() => setConfirmingReset(true)} title="Reset canvas" className={resetButton}>
-        <ArrowCounterClockwise size={20} aria-hidden />
-        <span className="sr-only">Reset canvas</span>
+      <button type="button" onClick={() => setConfirmingReset(true)} className={resetButton}>
+        <ArrowCounterClockwise size={16} aria-hidden />
+        Reset canvas
       </button>
       {confirmingReset && (
         <ConfirmDialog
@@ -338,7 +338,7 @@ export function FreeCanvas({ layoutId, pieces, firstLayout, overlay }: Props) {
 }
 
 const resetButton =
-  "absolute top-4 right-4 inline-flex size-10 items-center justify-center rounded-full border border-line bg-surface text-ink transition duration-300 ease-soft hover:bg-raised active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
+  "absolute top-4 right-4 inline-flex items-center gap-2 rounded-full border border-line bg-surface py-2 pr-4 pl-3 text-sm font-semibold text-ink transition duration-300 ease-soft hover:bg-raised active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
 
 type PieceProps = {
   id: string;
