@@ -367,8 +367,13 @@ function CanvasPiece({ id, label, width, at, z, children, onSize, onNudge, onFoc
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    // offsetWidth/Height are the piece's own size, unaffected by the canvas's zoom.
-    const measure = () => onSize({ w: el.offsetWidth, h: el.offsetHeight });
+    const measure = () => {
+      // offsetWidth/Height are the piece's own size, unaffected by the canvas's zoom.
+      onSize({ w: el.offsetWidth, h: el.offsetHeight });
+      // The highlight follows the piece's corners, so they match the card inside it (a capture card's are rounder).
+      const inner = el.firstElementChild && getComputedStyle(el.firstElementChild).borderRadius;
+      el.style.borderRadius = inner && inner !== "0px" ? inner : "";
+    };
     measure();
     const observer = new ResizeObserver(measure);
     observer.observe(el);
