@@ -32,7 +32,7 @@ const notesOn = (p: Project, name: string) => {
 
 describe("reading a Direction", () => {
   it("accepts a well-formed Direction", () => {
-    const raw = { understood: true, summary: "72 BPM · half-time", bpm: 72, style: { drums: "half-time", energy: "low" } };
+    const raw = { understood: true, summary: "72 BPM · in D", bpm: 72, key: "D" };
     expect(directionSchema.parse(raw)).toEqual(raw);
   });
 
@@ -43,8 +43,6 @@ describe("reading a Direction", () => {
   it.each([
     ["a tempo too fast", { bpm: 300 }],
     ["a tempo too slow", { bpm: 20 }],
-    ["an unknown drum feel", { style: { drums: "trap" } }],
-    ["an unknown energy", { style: { energy: "eleven" } }],
     ["an unknown key", { key: "H" }],
     ["an unknown scale", { scale: "dorian" }],
   ])("rejects %s", (_, extra) => {
@@ -63,21 +61,7 @@ describe("applying a Direction", () => {
     expect(notesOn(slower, "Hum 1")).toEqual(notesOn(project, "Hum 1"));
   });
 
-  it("merges the style and rewrites generated parts in it", () => {
-    const generated = withGeneratedParts(project);
-    const halfTime = applyDirection(generated, direction({ style: { drums: "half-time" } }));
-    expect(halfTime.style).toMatchObject({ drums: "half-time", chords: "triads" });
-    expect(notesOn(halfTime, "Drums").filter(([pitch]) => pitch === 38).map(([, start]) => start)).toEqual([2, 6]);
-  });
 
-  it("leaves a hummed beat alone when the drum feel changes", () => {
-    const beat: Track = { ...hum, id: "beat", name: "Beat 1", type: "drum", color: "drums", instrumentPreset: "hum-drums", order: 1, origin: { kind: "hum", ideaId: "beat" } };
-    const beatClip: Clip = { id: "bc", trackId: "beat", type: "drum", name: "Beat", startBar: 0, lengthBars: 1, notes: [quarter(36, 0), quarter(38, 1)] };
-    const withBeat = withGeneratedParts({ ...project, tracks: [hum, beat], clips: [humClip, beatClip] });
-    const changed = applyDirection(withBeat, direction({ style: { drums: "four-on-the-floor" } }));
-    expect(notesOn(changed, "Beat 1")).toEqual(notesOn(withBeat, "Beat 1"));
-    expect(changed.tracks.map((t) => t.name)).not.toContain("Drums");
-  });
 });
 
 describe("changing key and mode", () => {

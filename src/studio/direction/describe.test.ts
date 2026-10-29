@@ -23,7 +23,7 @@ function claude(reply: { stop_reason: string; parsed_output: unknown } | Error):
   }) as never;
 }
 
-const good = { understood: true, summary: "72 BPM · half-time drums", bpm: 72, style: { drums: "half-time" } };
+const good = { understood: true, summary: "72 BPM · in D", bpm: 72, key: "D" };
 
 describe("reading a description", () => {
   it("returns the Direction Claude read", async () => {

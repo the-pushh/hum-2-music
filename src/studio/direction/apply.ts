@@ -1,5 +1,5 @@
 import { instrumentPreset, instruments } from "@/instruments/instruments";
-import { withGeneratedParts, withStyle } from "@/studio/generate/parts";
+import { withGeneratedParts } from "@/studio/generate/parts";
 import { NOTE_NAMES } from "@/studio/music";
 import type { Project, Track } from "@/studio/types";
 import type { Direction } from "./schema";
@@ -14,8 +14,7 @@ const minorOnly = new Set([3, 8, 10]);
  * - a new key: melodic tracks move to the new tonic by the smallest interval, drums never move;
  * - a new mode: melodic notes on the 3rd, 6th and 7th move a semitone into the parallel major or minor;
  * - hummed melodies re-voiced on new instruments, taking each instrument's role;
- * - Style changes;
- * and generated parts rewritten to follow. Loaded into the studio as one change, so one undo takes it all back.
+ * and any generated parts from earlier arrangements rewritten to follow. Loaded into the studio as one change, so one undo takes it all back.
  */
 export function applyDirection(project: Project, direction: Direction): Project {
   let next = project;
@@ -45,8 +44,6 @@ export function applyDirection(project: Project, direction: Direction): Project 
     revoiced = true;
   }
 
-  const style = Object.fromEntries(Object.entries(direction.style ?? {}).filter(([, v]) => v !== undefined));
-  if (Object.keys(style).length) return withStyle(next, style);
   // A new key or mode, or a hum moved into or out of the bass, means new chords and bass even with the Style unchanged.
   return (shift || modeChange || revoiced) && next.tracks.some((t) => t.origin?.kind === "generated") ? withGeneratedParts(next) : next;
 }

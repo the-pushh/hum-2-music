@@ -7,6 +7,7 @@
 
 import { Midi } from '@tonejs/midi';
 import { instrumentOfPreset, instruments } from '@/instruments/instruments';
+import { sampleVelocity } from '@/export/takeEvents';
 import type { Project, Clip, Track } from '@/studio/types';
 
 
@@ -99,6 +100,10 @@ export function exportProjectToMidi(project: Project): Midi {
         const program = isDrum ? undefined : programFor(track.instrumentPreset);
         if (program !== undefined) midiTrack.instrument.number = program;
 
+        // hum: a track on one of hum's instruments plays on the samples' 40–110 range, so it's written at that
+        // loudness too. At the full 127, most DAW instruments sound much brighter and harsher than the studio did.
+        const humInstrument = !isDrum && instrumentOfPreset(track.instrumentPreset) !== undefined;
+
         // Process each clip
         for (const clip of clips) {
             if (!clip.notes || clip.notes.length === 0) continue;
@@ -115,7 +120,7 @@ export function exportProjectToMidi(project: Project): Midi {
                     midi: note.pitch,
                     time: noteStartSeconds,
                     duration: noteDurationSeconds,
-                    velocity: note.velocity / 127, // Normalize to 0-1
+                    velocity: (humInstrument ? sampleVelocity(note.velocity / 127) : note.velocity) / 127, // Normalize to 0-1
                 });
             }
         }

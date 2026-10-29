@@ -2,6 +2,15 @@
 
 hum is a sketchpad for song ideas. Hum a melody, beatbox a beat, and write lyrics into a sketch, then shape it into a small song in the studio. Everything stays in your browser (IndexedDB). There's no account and no server storage.
 
+## Into your DAW
+
+Every hummed melody and beat card has **MIDI** and **Audio** once hum has heard it:
+
+- **MIDI** is just the notes, at the take's tempo (a beat on the drum channel). Your DAW picks the sound.
+- **Audio** is a WAV of the take on the instrument the card plays it on, rendered on the spot.
+
+Tap either to share it (on a phone: AirDrop, Files, another app) or download it (on a computer). In Chrome or Edge on a computer, drag the chip straight onto a DAW track. A web page can't put a file on the clipboard, so dragging is the closest thing to copy and paste.
+
 ## Run it
 
 ```bash
