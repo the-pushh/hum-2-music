@@ -27,9 +27,8 @@ export function CaptureHome() {
       label: "hum",
       width: pageWidth,
       node: (
-        <header className="flex flex-col items-start gap-3">
-          <span className="inline-flex h-8 items-center rounded-lg bg-raised px-2 font-mono text-sm text-ink">hum</span>
-          <h1 className="text-3xl font-semibold text-ink">Catch it before it goes</h1>
+        <header className="flex flex-col items-start">
+          <h1 className="inline-flex h-8 items-center rounded-lg bg-raised px-2 font-mono text-sm text-ink">hum</h1>
         </header>
       ),
     },
