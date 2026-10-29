@@ -29,7 +29,7 @@ export function EditableTitle({ title, onRename }: { title: string; onRename: (t
             setDraft(null);
           }
         }}
-        aria-label="Sketch name"
+        aria-label="Idea name"
         maxLength={80}
         className="w-full rounded-lg bg-surface px-2 text-3xl font-semibold text-ink focus-visible:outline-2 focus-visible:outline-ink"
       />
@@ -45,7 +45,7 @@ export function EditableTitle({ title, onRename }: { title: string; onRename: (t
           cancelled.current = false;
           setDraft(title);
         }}
-        aria-label="Rename sketch"
+        aria-label="Rename idea"
         className="inline-flex size-10 shrink-0 items-center justify-center rounded-lg text-ink-muted transition duration-300 ease-soft hover:bg-surface hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-ink"
       >
         <PencilSimple size={20} aria-hidden />

@@ -27,10 +27,10 @@ const IDEAS_GAP = 12;
 /** Hums and beats take two columns of the grid: a waveform, what hum heard and their controls need the room. */
 const columnsFor = (idea: Idea) => (idea.kind === "voice" ? 2 : 1);
 
-/** " and its 1 idea" / " and all 3 of its ideas" / "" for an empty sketch. */
+/** " and its 1 take" / " and all 3 of its takes" / "" for an empty idea. */
 function andItsIdeas(n: number) {
   if (n === 0) return "";
-  return n === 1 ? " and its 1 idea" : ` and all ${n} of its ideas`;
+  return n === 1 ? " and its 1 take" : ` and all ${n} of its takes`;
 }
 
 export function SketchScreen({ id }: { id: string }) {
@@ -60,14 +60,14 @@ export function SketchScreen({ id }: { id: string }) {
     setConfirming(null);
     if (confirming.kind === "idea") {
       const { idea } = confirming;
-      return attempt(() => deleteIdea(idea.id), "That idea couldn't be deleted. Try again.");
+      return attempt(() => deleteIdea(idea.id), "That take couldn't be deleted. Try again.");
     }
-    // Navigation doesn't wait, so mark the page as leaving: it mustn't flash "This sketch isn't here" meanwhile.
+    // Navigation doesn't wait, so mark the page as leaving: it mustn't flash "This idea isn't here" meanwhile.
     setLeaving(true);
     router.replace("/");
     await deleteSketch(id).catch(() => {
       setLeaving(false);
-      setActionError("The sketch couldn't be deleted. Try again.");
+      setActionError("The idea couldn't be deleted. Try again.");
     });
   }
 
@@ -76,7 +76,7 @@ export function SketchScreen({ id }: { id: string }) {
   if (sketch === null) {
     return (
       <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-8">
-        <h1 className="text-2xl font-semibold text-ink">This sketch isn&apos;t here</h1>
+        <h1 className="text-2xl font-semibold text-ink">This idea isn&apos;t here</h1>
         <p className="text-base text-ink-muted">It may have been deleted, or it was saved in a different browser.</p>
         <Link href="/" className="w-fit rounded-lg text-base font-semibold text-ink underline underline-offset-4 transition duration-300 ease-soft hover:text-ink-muted active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
           Back to capture
@@ -91,7 +91,7 @@ export function SketchScreen({ id }: { id: string }) {
     ? [
         {
           id: "arrange",
-          label: "Ideas in order",
+          label: "Takes in order",
           width: Math.min(pageWidth, ARRANGE_WIDTH),
           node: (
             <ArrangeList
@@ -108,11 +108,11 @@ export function SketchScreen({ id }: { id: string }) {
       ? [
           {
             id: "empty",
-            label: "Nothing in this sketch yet",
+            label: "Nothing in this idea yet",
             width: pageWidth,
             node: (
               <div className="rounded-2xl bg-surface p-6">
-                <p className="text-base text-ink">Nothing in this sketch yet.</p>
+                <p className="text-base text-ink">Nothing in this idea yet.</p>
                 <p className="text-sm text-ink-muted">Write lyrics, hum a melody or beatbox a beat to start collecting the pieces of this song.</p>
               </div>
             ),
@@ -138,7 +138,7 @@ export function SketchScreen({ id }: { id: string }) {
             className="inline-flex w-fit items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
           >
             <ArrowLeft size={16} aria-hidden />
-            All sketches
+            All ideas
           </Link>
           <EditableTitle
             title={sketch.title}
@@ -150,7 +150,7 @@ export function SketchScreen({ id }: { id: string }) {
     { id: "capture", label: "Capture", width: Math.min(pageWidth, CAPTURE_WIDTH), node: <CaptureCard openSketchId={id} /> },
     {
       id: "tools",
-      label: "Sketch tools",
+      label: "Idea tools",
       node: (
         <div className="flex gap-2">
           {!editing && (
@@ -165,7 +165,7 @@ export function SketchScreen({ id }: { id: string }) {
           {editing && (
             <Button variant="ghost" onClick={() => setConfirming({ kind: "sketch" })}>
               <Trash size={20} aria-hidden />
-              Delete sketch
+              Delete idea
             </Button>
           )}
           <Button variant="ghost" onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
@@ -220,14 +220,14 @@ export function SketchScreen({ id }: { id: string }) {
         <ConfirmDialog
           {...(confirming.kind === "idea"
             ? {
-                title: "Delete this idea?",
-                body: `"${ideaSummary(confirming.idea).label}" will be removed from this sketch. This can't be undone.`,
-                confirmLabel: "Delete idea",
+                title: "Delete this take?",
+                body: `"${ideaSummary(confirming.idea).label}" will be removed from this idea. This can't be undone.`,
+                confirmLabel: "Delete take",
               }
             : {
-                title: "Delete this sketch?",
+                title: "Delete this idea?",
                 body: `"${sketch.title}"${andItsIdeas(ideas.length)} will be removed. This can't be undone.`,
-                confirmLabel: "Delete sketch",
+                confirmLabel: "Delete idea",
               })}
           onConfirm={() => void confirmDelete()}
           onCancel={() => setConfirming(null)}

@@ -54,7 +54,7 @@ describe("sketch store", () => {
   it("captures into a new sketch with a readable title when none is open", async () => {
     const store = freshStore(new Date(2026, 9, 27, 9, 0).getTime());
     const { sketch, idea } = await store.capture(null, { kind: "note", text: "first thought" });
-    expect(sketch.title).toBe("Sketch, 27 Oct");
+    expect(sketch.title).toBe("Idea, 27 Oct");
     expect(await store.listSketches()).toEqual([sketch]);
     expect(await store.listIdeas(sketch.id)).toEqual([idea]);
   });

@@ -35,18 +35,18 @@ export function CaptureHome() {
     { id: "capture", label: "Capture", width: pageWidth, node: <CaptureCard openSketchId={null} /> },
     {
       id: "recent",
-      label: "Recent sketches",
+      label: "Recent ideas",
       width: pageWidth,
       node: (
         <section aria-labelledby="recent" className="flex flex-col gap-3">
           <h2 id="recent" className="text-sm font-semibold text-ink-muted">
-            Recent sketches
+            Recent ideas
           </h2>
           {sketches.length === 0 ? (
             <div className="rounded-2xl bg-surface p-6">
-              <p className="text-base text-ink">No sketches yet.</p>
+              <p className="text-base text-ink">No ideas yet.</p>
               <p className="text-sm text-ink-muted">
-                Write lyrics, hum a melody or beatbox a beat above, and hum starts a sketch for it. Everything you add later collects there.
+                Write lyrics, hum a melody or beatbox a beat above, and hum starts an idea for it. Everything you add later collects there.
               </p>
             </div>
           ) : (

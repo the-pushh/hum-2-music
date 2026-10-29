@@ -113,7 +113,7 @@ export function LyricsEditor({ sketchId, ideaId, initial }: { sketchId: string; 
           className="inline-flex items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           <ArrowLeft size={16} aria-hidden />
-          Back to sketch
+          Back to idea
         </Link>
         <span role="status" className={`text-sm ${saveState === "failed" ? "text-accent" : "text-ink-muted"}`}>
           {saveState === "saved" ? "Saved" : saveState === "saving" ? "Saving" : "Couldn't save. Keep this page open and try typing again."}

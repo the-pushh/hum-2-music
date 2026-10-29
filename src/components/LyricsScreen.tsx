@@ -26,7 +26,7 @@ export function LyricsScreen({ sketchId, ideaId }: { sketchId: string; ideaId: s
           href={`/s/${sketchId}`}
           className="w-fit rounded-lg text-base font-semibold text-ink underline underline-offset-4 transition duration-300 ease-soft hover:text-ink-muted active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
-          Back to sketch
+          Back to idea
         </Link>
       </main>
     );

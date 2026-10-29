@@ -188,7 +188,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
   /** Adds an idea to the open sketch, or starts a new one when nothing is open. All or nothing. */
   function capture(openSketchId: string | null, input: IdeaInput): Promise<{ sketch: Sketch; idea: Idea }> {
     return db.transaction("rw", db.sketches, db.ideas, async () => {
-      const sketchId = openSketchId ?? (await createSketch(`Sketch, ${dayMonth.format(now())}`)).id;
+      const sketchId = openSketchId ?? (await createSketch(`Idea, ${dayMonth.format(now())}`)).id;
       if (!(await getSketch(sketchId))) throw new Error(`Sketch ${sketchId} not found`);
       const idea = await addIdea(sketchId, input);
       return { sketch: (await getSketch(sketchId))!, idea };

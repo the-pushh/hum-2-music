@@ -4,8 +4,8 @@ The words hum's code and issues use, and what they mean here.
 
 ## Capture
 
-- **Sketch**: one song idea in progress: a title and the Ideas collected for it. Captured with no Sketch open, an Idea starts a new one.
-- **Idea**: one thing captured into a Sketch: lyrics, or a voice take (a hummed melody or a beat). Sketches from before M4 may also hold images, links, colors and notes, which still show but can no longer be added. Ideas keep the order the songwriter gives them.
+- **Sketch**: one song idea in progress: a title and the Ideas collected for it. Captured with no Sketch open, an Idea starts a new one. The app calls a Sketch an **idea** on screen.
+- **Idea**: one thing captured into a Sketch: lyrics, or a voice take (a hummed melody or a beat). Sketches from before M4 may also hold images, links, colors and notes, which still show but can no longer be added. Ideas keep the order the songwriter gives them. The app calls an Idea a **take** on screen.
 - **Canvas**: how hum's pages show: the home page, a Sketch's page and its studio open laid out as they always were, but every piece (the title, the capture bar, each Idea or Sketch card, the timeline) can be dragged anywhere, and the page pans and zooms. A page's **Layout** holds each piece's **Place**; pieces with none yet are laid out by hum.
 - **Take**: how a voice Idea was recorded: its Take mode, its tempo, whether a click played, and the key chosen beforehand, if any. Takes without a click are measured at the reference tempo, 90 BPM.
 - **Take mode**: what a take is of: a **melody** (hummed or sung) or a **beat**. Takes from before M4 are melodies.

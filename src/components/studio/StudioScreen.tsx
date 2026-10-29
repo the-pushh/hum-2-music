@@ -35,7 +35,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
   if (state.status === "missing") {
     return (
       <main className="mx-auto flex w-full max-w-xl flex-col gap-4 px-4 py-8">
-        <h1 className="text-2xl font-semibold text-ink">This sketch isn&apos;t here</h1>
+        <h1 className="text-2xl font-semibold text-ink">This idea isn&apos;t here</h1>
         <p className="text-base text-ink-muted">It may have been deleted, or it was saved in a different browser.</p>
         <Link href="/" className="w-fit rounded-lg text-base font-semibold text-ink underline underline-offset-4 transition duration-300 ease-soft hover:text-ink-muted active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink">
           Back to capture
@@ -60,14 +60,14 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
   const pieces: Piece[] = [
     {
       id: "back",
-      label: "Back to sketch",
+      label: "Back to idea",
       node: (
         <Link
           href={`/s/${sketchId}`}
           className="inline-flex w-fit items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
         >
           <ArrowLeft size={16} aria-hidden />
-          Back to sketch
+          Back to idea
         </Link>
       ),
     },

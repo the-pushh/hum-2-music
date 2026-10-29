@@ -63,7 +63,7 @@ export function ArrangeList({ ideas: stored, onMove, onDelete }: Props) {
   return (
     <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd} accessibility={{ announcements }}>
       <SortableContext items={ideas.map((i) => i.id)} strategy={verticalListSortingStrategy}>
-        <ol className="flex flex-col gap-2" aria-label="Ideas in order">
+        <ol className="flex flex-col gap-2" aria-label="Takes in order">
           {ideas.map((idea) => (
             <ArrangeRow key={idea.id} idea={idea} onDelete={() => onDelete(idea)} />
           ))}
