@@ -28,7 +28,7 @@ export function CaptureHome() {
       width: pageWidth,
       node: (
         <header className="flex flex-col items-start">
-          <h1 className="inline-flex h-8 items-center rounded-lg bg-raised px-2 font-mono text-sm text-ink">hum</h1>
+          <h1 className="font-mono text-xl font-bold text-ink">hum-2-music</h1>
         </header>
       ),
     },
