@@ -96,6 +96,13 @@ describe("MIDI export", () => {
     expect(Math.round(normal.velocity * 127)).toBe(100);
   });
 
+  it("writes a hum at the loudness hum plays it, on the samples' 40–110 range", () => {
+    const strings = { ...track("Melody", "midi", "melody"), instrumentPreset: "hum-strings" };
+    const [loud, normal] = roundTrip({ ...project, tracks: [strings, ...project.tracks.slice(1)] }).tracks[0].notes;
+    expect(Math.round(loud.velocity * 127)).toBe(110);
+    expect(Math.round(normal.velocity * 127)).toBe(95);
+  });
+
   it("puts drums on channel 10 and nothing else there", () => {
     const midi = roundTrip(project);
     expect(midi.tracks[2].channel).toBe(9);
