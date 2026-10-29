@@ -93,7 +93,7 @@ export function CaptureBar({ openSketchId }: Props) {
 export function CaptureCard({ openSketchId }: { openSketchId: string | null }) {
   return (
     <div className="flex flex-col gap-3 rounded-3xl border border-line bg-canvas p-4">
-      <h2 className="text-sm font-semibold text-ink-muted">Capture the moment inspiration hits</h2>
+      <h2 className="text-sm font-semibold text-ink-muted">Capture ideas the moment inspiration hits</h2>
       <CaptureBar openSketchId={openSketchId} />
     </div>
   );
