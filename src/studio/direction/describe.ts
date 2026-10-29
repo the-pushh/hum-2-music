@@ -1,5 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
+import { claudeErrorOf, type ClaudeCallError } from "@/studio/claude/errors";
 import type { DescribeContext } from "./context";
 import { directionSchema, type Direction } from "./schema";
 
@@ -7,7 +8,7 @@ export type { DescribeContext } from "./context";
 
 export type DescribeRequest = { description: string; context: DescribeContext };
 
-export type DescribeError = "empty" | "bad-request" | "not-configured" | "offline" | "upstream" | "timeout" | "invalid-output" | "declined";
+export type DescribeError = ClaudeCallError | "empty" | "bad-request" | "declined";
 export type DescribeResult = { ok: true; direction: Direction } | { ok: false; error: DescribeError };
 
 /** The one Claude call this needs, so tests can stand in for it. */
@@ -63,12 +64,6 @@ export async function readDescription({ description, context }: DescribeRequest,
     if (direction.data.instruments?.some((i) => !voiceable.has(i.trackId))) return { ok: false, error: "invalid-output" };
     return { ok: true, direction: direction.data };
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError || err instanceof Anthropic.PermissionDeniedError) return { ok: false, error: "not-configured" };
-    if (err instanceof Anthropic.APIConnectionTimeoutError) return { ok: false, error: "timeout" };
-    if (err instanceof Anthropic.APIConnectionError) return { ok: false, error: "offline" };
-    if (err instanceof Anthropic.APIError) return { ok: false, error: "upstream" };
-    // The SDK's own parse failures, when Claude's output doesn't fit the schema.
-    if (err instanceof Anthropic.AnthropicError) return { ok: false, error: "invalid-output" };
-    throw err;
+    return { ok: false, error: claudeErrorOf(err) };
   }
 }

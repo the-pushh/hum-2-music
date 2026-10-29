@@ -63,6 +63,31 @@ export function withGeneratedParts(project: Project, { keepClaudeParts = false }
   return { ...project, tracks, clips };
 }
 
+/**
+ * Claude's parts in the arrangement: each one written replaces that generated part (keeping its track's mixer
+ * settings) or becomes a new generated track, marked as written by Claude. Parts Claude didn't write stay as they are,
+ * and a hummed beat is never replaced by Claude's drums.
+ */
+export function withClaudeParts(project: Project, written: Partial<Record<Part, PartNote[]>>): Project {
+  const plan = planFor(project);
+  const hummedBeat = project.tracks.some((t) => t.origin?.kind === "hum" && t.type === "drum");
+  let { tracks, clips } = project;
+  let order = Math.max(-1, ...tracks.map((t) => t.order));
+
+  for (const part of Object.keys(parts) as Part[]) {
+    const notes = written[part];
+    if (!notes?.length || (part === "drums" && hummedBeat)) continue;
+    const origin = { kind: "generated", part, by: "claude" } as const;
+    const existing = tracks.find((t) => t.origin?.kind === "generated" && t.origin.part === part);
+    const track: Track = existing
+      ? { ...existing, origin }
+      : { ...parts[part], id: crypto.randomUUID(), projectId: project.id, pan: 0, muted: false, solo: false, armed: false, order: ++order, origin };
+    tracks = existing ? tracks.map((t) => (t.id === track.id ? track : t)) : [...tracks, track];
+    clips = [...clips.filter((c) => c.trackId !== track.id), clipFor(track, plan, notes.map(note))];
+  }
+  return { ...project, tracks, clips };
+}
+
 function clipFor(track: Track, plan: Plan, notes: Note[]): Clip {
   return {
     id: crypto.randomUUID(),

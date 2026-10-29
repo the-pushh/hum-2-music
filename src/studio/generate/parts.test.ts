@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Clip, Note, Project, Track } from "@/studio/types";
-import { withGeneratedParts, withStyle } from "./parts";
+import { withClaudeParts, withGeneratedParts, withStyle } from "./parts";
 
 const melodyTrack: Track = {
   id: "hum",
@@ -223,6 +223,45 @@ describe("parts Claude wrote", () => {
     const styled = withStyle(unnamed, { drums: "half-time" });
     const snares = notesOn(styled, styled.tracks.find((t) => t.name === "Drums")!).filter(([pitch]) => pitch === 38);
     expect(snares.map(([, start]) => start)).toEqual([2, 6]);
+  });
+});
+
+describe("putting Claude's parts in the arrangement", () => {
+  const written = {
+    chords: [60, 64, 67].map((pitch) => ({ pitch, startBeat: 0, duration: 4, velocity: 70 })),
+    bass: [{ pitch: 36, startBeat: 0, duration: 2, velocity: 100 }],
+  };
+
+  it("adds the parts as generated tracks written by Claude", () => {
+    const next = withClaudeParts(project, written);
+    expect(next.tracks.map((t) => [t.name, t.origin])).toEqual([
+      ["Hum 1", melodyTrack.origin],
+      ["Chords", { kind: "generated", part: "chords", by: "claude" }],
+      ["Bass", { kind: "generated", part: "bass", by: "claude" }],
+    ]);
+    expect(notesOn(next, next.tracks[1])).toEqual([
+      [60, 0, 4],
+      [64, 0, 4],
+      [67, 0, 4],
+    ]);
+    expect(next.clips.find((c) => c.trackId === next.tracks[1].id)).toMatchObject({ startBar: 0, lengthBars: 2 });
+  });
+
+  it("replaces only the parts Claude wrote, keeping their mixer settings and the other parts", () => {
+    const generated = withGeneratedParts(project);
+    const quietChords = { ...generated, tracks: generated.tracks.map((t) => (t.name === "Chords" ? { ...t, volume: 0.2, muted: true } : t)) };
+    const next = withClaudeParts(quietChords, { chords: written.chords });
+    const chords = next.tracks.find((t) => t.name === "Chords")!;
+    expect(chords).toMatchObject({ volume: 0.2, muted: true, origin: { kind: "generated", part: "chords", by: "claude" } });
+    expect(notesOn(next, next.tracks.find((t) => t.name === "Drums")!)).toEqual(notesOn(generated, generated.tracks.find((t) => t.name === "Drums")!));
+    expect(next.tracks.find((t) => t.name === "Bass")?.origin).toMatchObject({ by: "rules" });
+  });
+
+  it("never puts Claude's drums over a hummed beat", () => {
+    const beat: Track = { ...melodyTrack, id: "beat", name: "Beat 1", type: "drum", color: "drums", instrumentPreset: "hum-drums", order: 1, origin: { kind: "hum", ideaId: "beat" } };
+    const withBeat = { ...project, tracks: [melodyTrack, beat] };
+    const next = withClaudeParts(withBeat, { drums: [{ pitch: 36, startBeat: 0, duration: 0.25, velocity: 100 }] });
+    expect(next.tracks.map((t) => t.name)).toEqual(["Hum 1", "Beat 1"]);
   });
 });
 

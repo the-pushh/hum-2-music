@@ -21,6 +21,8 @@ echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env.local
 
 Only your words and the song's settings (tempo, key, style, track names) are sent, never recordings or lyrics. Without a key, everything else works and the box says it isn't set up.
 
+**Write with Claude** (the pen on the studio's transport) uses the same key. Claude writes chords, bass and drums for your melody, following the Style and an optional note. It sends your melody's and beat's notes, the song's settings and the note, never recordings or lyrics. Generate parts still writes rule-based parts offline.
+
 ## Test on your phone
 
 Phones only allow the microphone on **https** pages, so http://192.168.x.x:3000 can't record. Two ways to do it:

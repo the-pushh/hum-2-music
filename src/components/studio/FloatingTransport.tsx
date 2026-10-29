@@ -8,6 +8,7 @@ import { withGeneratedParts } from "@/studio/generate/parts";
 import { useProjectStore } from "@/studio/store/project";
 import { usePlaybackStore } from "@/studio/store/playback";
 import { playProject, playheadBars, stopProject } from "@/studio/transport";
+import { WriteWithClaude } from "./WriteWithClaude";
 
 /** A small round button on the transport pill. Pair with sr-only text. */
 const pillButton =
@@ -109,6 +110,7 @@ export function FloatingTransport() {
           <MagicWand size={20} aria-hidden />
           <span className="sr-only sm:not-sr-only sm:text-sm sm:font-semibold">{generated ? "Generate again" : "Generate parts"}</span>
         </button>
+        <WriteWithClaude buttonClassName={pillButton} />
         <button type="button" className={pillButton} disabled={!hasNotes} onClick={() => downloadProjectAsMidi(project)}>
           <DownloadSimple size={20} aria-hidden />
           <span className="sr-only">Export MIDI</span>
