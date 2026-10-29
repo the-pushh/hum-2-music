@@ -10,7 +10,7 @@ import type { Idea, Place } from "@/sketches/types";
 import { CARD_WIDTH, columnLayout, spanWidth, stack, type Size } from "@/ui/canvasLayout";
 import { ArrangeList } from "./ArrangeList";
 import { Button } from "./Button";
-import { CaptureBar } from "./CaptureBar";
+import { CaptureCard } from "./CaptureBar";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EditableTitle } from "./EditableTitle";
 import { FreeCanvas, useScreenWidth, type Piece } from "./FreeCanvas";
@@ -147,7 +147,7 @@ export function SketchScreen({ id }: { id: string }) {
         </header>
       ),
     },
-    { id: "capture", label: "Capture", width: Math.min(pageWidth, CAPTURE_WIDTH), node: <CaptureBar openSketchId={id} /> },
+    { id: "capture", label: "Capture", width: Math.min(pageWidth, CAPTURE_WIDTH), node: <CaptureCard openSketchId={id} /> },
     {
       id: "tools",
       label: "Sketch tools",

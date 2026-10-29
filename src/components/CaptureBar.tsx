@@ -88,3 +88,12 @@ export function CaptureBar({ openSketchId }: Props) {
     </section>
   );
 }
+
+/** The capture bar as a piece of a canvas page: in a card of its own, with room around it to grab it by. */
+export function CaptureCard({ openSketchId }: { openSketchId: string | null }) {
+  return (
+    <div className="rounded-3xl border border-line bg-canvas p-4">
+      <CaptureBar openSketchId={openSketchId} />
+    </div>
+  );
+}

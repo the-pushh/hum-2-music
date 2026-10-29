@@ -6,7 +6,7 @@ import { CaretRight, MusicNotes } from "@phosphor-icons/react";
 import { sketchStore } from "@/sketches/client";
 import type { Place, Sketch } from "@/sketches/types";
 import { stack, type Size } from "@/ui/canvasLayout";
-import { CaptureBar } from "./CaptureBar";
+import { CaptureCard } from "./CaptureBar";
 import { FreeCanvas, useScreenWidth, type Piece } from "./FreeCanvas";
 
 const updatedAtFormat = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -33,46 +33,47 @@ export function CaptureHome() {
         </header>
       ),
     },
-    { id: "capture", label: "Capture", width: pageWidth, node: <CaptureBar openSketchId={null} /> },
+    { id: "capture", label: "Capture", width: pageWidth, node: <CaptureCard openSketchId={null} /> },
     {
       id: "recent",
       label: "Recent sketches",
-      node: <h2 className="text-sm font-semibold text-ink-muted">Recent sketches</h2>,
+      width: pageWidth,
+      node: (
+        <section aria-labelledby="recent" className="flex flex-col gap-3">
+          <h2 id="recent" className="text-sm font-semibold text-ink-muted">
+            Recent sketches
+          </h2>
+          {sketches.length === 0 ? (
+            <div className="rounded-2xl bg-surface p-6">
+              <p className="text-base text-ink">No sketches yet.</p>
+              <p className="text-sm text-ink-muted">
+                Write lyrics, hum a melody or beatbox a beat above, and hum starts a sketch for it. Everything you add later collects there.
+              </p>
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-2">
+              {sketches.map((s) => (
+                <li key={s.id}>
+                  <SketchRow sketch={s} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      ),
     },
-    ...(sketches.length === 0
-      ? [
-          {
-            id: "empty",
-            label: "No sketches yet",
-            width: pageWidth,
-            node: (
-              <div className="rounded-2xl bg-surface p-6">
-                <p className="text-base text-ink">No sketches yet.</p>
-                <p className="text-sm text-ink-muted">
-                  Write lyrics, hum a melody or beatbox a beat above, and hum starts a sketch for it. Everything you add later collects there.
-                </p>
-              </div>
-            ),
-          },
-        ]
-      : sketches.map((s) => ({ id: s.id, label: s.title, width: pageWidth, node: <SketchRow sketch={s} />, arrives: "view" as const }))),
   ];
 
-  /** The page as it was: the intro, the capture bar, then the sketches listed newest first. */
+  /** The page as it was: the intro, the capture bar, then the recent sketches. */
   function firstLayout(sizes: Record<string, Size>): Record<string, Place> {
-    const top = stack(
+    return stack(
       [
         { id: "intro", size: sizes.intro },
         { id: "capture", size: sizes.capture },
         { id: "recent", size: sizes.recent },
       ],
       { width: pageWidth, gap: 32 },
-    );
-    const list = stack(
-      sketches!.length ? sketches!.map((s) => ({ id: s.id, size: sizes[s.id] })) : [{ id: "empty", size: sizes.empty }],
-      { width: pageWidth, gap: 8, top: top.bottom + 12 },
-    );
-    return { ...top.places, ...list.places };
+    ).places;
   }
 
   return (
@@ -82,7 +83,7 @@ export function CaptureHome() {
   );
 }
 
-/** A sketch on the home page. Opens the sketch; drag it to put it anywhere. */
+/** A sketch in the home page's list. Opens the sketch. */
 function SketchRow({ sketch }: { sketch: Sketch }) {
   return (
     <Link
