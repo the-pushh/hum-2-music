@@ -19,21 +19,33 @@ export type Rect = Place & Size;
 /** How the canvas is shown: where its origin sits on screen, and how far it's zoomed. */
 export type View = Place & { scale: number };
 
+/** How wide a card is that spans this many columns of the grid. */
+export function spanWidth(span: number, gap: number) {
+  return span * CARD_WIDTH + (span - 1) * gap;
+}
+
 /**
- * Cards in order, each into the shortest of `columns` columns, like the old grid, starting at `top`.
+ * Cards in order, each into the shortest of `columns` columns, like the old grid, starting at `top`. A card with a
+ * `span` takes that many columns side by side, wherever they end highest (one column, when there's only one).
  * Returns each card's place by id.
  */
 export function columnLayout(
-  cards: { id: string; h: number }[],
+  cards: { id: string; h: number; span?: number }[],
   columns: number,
   { gap = CARD_GAP, top = 0 }: { gap?: number; top?: number } = {},
 ): Record<string, Place> {
   const bottoms = Array<number>(Math.max(1, columns)).fill(top);
   const places: Record<string, Place> = {};
-  for (const { id, h } of cards) {
-    const col = bottoms.indexOf(Math.min(...bottoms));
-    places[id] = { x: col * (CARD_WIDTH + gap), y: bottoms[col] };
-    bottoms[col] += h + gap;
+  for (const { id, h, span = 1 } of cards) {
+    const width = Math.min(span, bottoms.length);
+    let col = 0;
+    let y = Infinity;
+    for (let c = 0; c + width <= bottoms.length; c++) {
+      const below = Math.max(...bottoms.slice(c, c + width));
+      if (below < y) [col, y] = [c, below];
+    }
+    places[id] = { x: col * (CARD_WIDTH + gap), y };
+    bottoms.fill(y + h + gap, col, col + width);
   }
   return places;
 }

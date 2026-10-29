@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_GAP, CARD_WIDTH, columnLayout, freeSpot, pageView, stack, type Rect } from "./canvasLayout";
+import { CARD_GAP, CARD_WIDTH, columnLayout, freeSpot, pageView, spanWidth, stack, type Rect } from "./canvasLayout";
 
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
@@ -26,6 +26,33 @@ describe("column layout", () => {
   it("starts lower down and keeps the gap it's given", () => {
     const places = columnLayout([{ id: "a", h: 100 }, { id: "b", h: 50 }, { id: "c", h: 10 }], 2, { gap: 12, top: 400 });
     expect(places).toEqual({ a: { x: 0, y: 400 }, b: { x: CARD_WIDTH + 12, y: 400 }, c: { x: CARD_WIDTH + 12, y: 462 } });
+  });
+
+  it("lays a wide card across two columns, under the lower of the two", () => {
+    const col = CARD_WIDTH + 12;
+    const places = columnLayout(
+      [
+        { id: "a", h: 100 },
+        { id: "wide", h: 300, span: 2 },
+        { id: "b", h: 50 },
+      ],
+      3,
+      { gap: 12 },
+    );
+    // "wide" takes columns 1 and 2, which are both empty; "b" then fits under "a".
+    expect(places).toEqual({ a: { x: 0, y: 0 }, wide: { x: col, y: 0 }, b: { x: 0, y: 112 } });
+  });
+
+  it("lays a wide card in one column when there's only one", () => {
+    expect(columnLayout([{ id: "wide", h: 300, span: 2 }, { id: "a", h: 10 }], 1, { gap: 12 })).toEqual({
+      wide: { x: 0, y: 0 },
+      a: { x: 0, y: 312 },
+    });
+  });
+
+  it("says how wide a card spanning columns is", () => {
+    expect(spanWidth(1, 12)).toBe(CARD_WIDTH);
+    expect(spanWidth(2, 12)).toBe(2 * CARD_WIDTH + 12);
   });
 
   it("uses at least one column", () => {

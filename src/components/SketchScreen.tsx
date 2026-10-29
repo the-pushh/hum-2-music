@@ -7,7 +7,7 @@ import { ArrowLeft, Check, MusicNotes, PencilSimple, Trash } from "@phosphor-ico
 import { useState } from "react";
 import { deleteIdea, deleteSketch, sketchStore } from "@/sketches/client";
 import type { Idea, Place } from "@/sketches/types";
-import { CARD_WIDTH, columnLayout, stack, type Size } from "@/ui/canvasLayout";
+import { CARD_WIDTH, columnLayout, spanWidth, stack, type Size } from "@/ui/canvasLayout";
 import { ArrangeList } from "./ArrangeList";
 import { Button } from "./Button";
 import { CaptureBar } from "./CaptureBar";
@@ -23,6 +23,9 @@ const CAPTURE_WIDTH = 576;
 const ARRANGE_WIDTH = 576;
 /** The old grid's gutter. */
 const IDEAS_GAP = 12;
+
+/** Hums and beats take two columns of the grid: a waveform, what hum heard and their controls need the room. */
+const columnsFor = (idea: Idea) => (idea.kind === "voice" ? 2 : 1);
 
 /** " and its 1 idea" / " and all 3 of its ideas" / "" for an empty sketch. */
 function andItsIdeas(n: number) {
@@ -115,7 +118,13 @@ export function SketchScreen({ id }: { id: string }) {
             ),
           },
         ]
-      : ideas.map((idea) => ({ id: idea.id, label: ideaSummary(idea).label, width: CARD_WIDTH, node: <IdeaCard data={idea} />, arrives: "view" as const }));
+      : ideas.map((idea) => ({
+          id: idea.id,
+          label: ideaSummary(idea).label,
+          width: Math.min(spanWidth(columnsFor(idea), IDEAS_GAP), pageWidth),
+          node: <IdeaCard data={idea} />,
+          arrives: "view" as const,
+        }));
 
   const pieces: Piece[] = [
     {
@@ -185,7 +194,11 @@ export function SketchScreen({ id }: { id: string }) {
       ...top.places,
       arrange: { x: 0, y: ideasTop },
       empty: { x: 0, y: ideasTop },
-      ...columnLayout(ideas!.map((i) => ({ id: i.id, h: sizes[i.id]?.h ?? 0 })), columns, { gap: IDEAS_GAP, top: ideasTop }),
+      ...columnLayout(
+        ideas!.map((i) => ({ id: i.id, h: sizes[i.id]?.h ?? 0, span: columnsFor(i) })),
+        columns,
+        { gap: IDEAS_GAP, top: ideasTop },
+      ),
     };
   }
 
