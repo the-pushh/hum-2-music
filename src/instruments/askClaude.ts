@@ -10,7 +10,7 @@ import { NOTE_NAMES } from "@/studio/music";
 import { defaultInstrument, type InstrumentId } from "./instruments";
 
 /**
- * Asks Claude (through Describe it's route) which instrument the songwriter's words mean for one hum, when the keyword
+ * Asks Claude (through the describe route) which instrument the songwriter's words mean for one hum, when the keyword
  * reader found none: "something dreamy and 80s". Only the words and this hum's tempo and key are sent, and only the
  * answer's instrument for this hum is used; anything else Claude read is ignored.
  */

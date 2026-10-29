@@ -10,7 +10,6 @@ import type { Place } from "@/sketches/types";
 import { stack, type Size } from "@/ui/canvasLayout";
 import { Button } from "../Button";
 import { FreeCanvas, useScreenWidth, type Piece } from "../FreeCanvas";
-import { DescribeBox } from "./DescribeBox";
 import { DrumGrid } from "./DrumGrid";
 import { FloatingTransport } from "./FloatingTransport";
 import { PianoRoll } from "./PianoRoll";
@@ -100,7 +99,6 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
         width: pageWidth,
         node: <Timeline title={sketch?.title ?? "Studio"} selectedTrackId={selectedTrackId} onSelect={setSelectedTrackId} />,
       },
-      { id: "describe", label: "Describe the song", width: pageWidth, node: <DescribeBox /> },
     );
     if (!project.clips.length) {
       pieces.push({
@@ -109,7 +107,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
         width: pageWidth,
         node: (
           <p className="px-2 text-sm text-ink-muted">
-            Nothing in this sketch has been heard yet. Record a melody or a beat on the sketch page, or tap a track to write notes yourself.
+            Nothing in this idea has been heard yet. Record a melody or a beat on the idea page, or tap a track to write notes yourself.
           </p>
         ),
       });
@@ -132,7 +130,7 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
     }
   }
 
-  /** The studio as it was: back link, any newer takes, the timeline, the Describe box, then the note editor. */
+  /** The studio as it was: back link, any newer takes, the timeline, then the note editor. */
   function firstLayout(sizes: Record<string, Size>): Record<string, Place> {
     // A piece that shows up later (the note editor, newer takes) gets its spot from the page as it is then.
     return stack(

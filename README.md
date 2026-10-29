@@ -20,15 +20,15 @@ npm run dev
 
 Open http://localhost:3000. Tests: `npm test`. Types: `npm run typecheck`.
 
-### Describe it (optional)
+### Instrument prompt (optional)
 
-The studio's **Describe it** box reads what you want the song to feel like ("slower, half-time, chill") with Claude. It needs an Anthropic API key on the server. Put it in `.env.local`, which git ignores, then restart `npm run dev`:
+A melody card's instrument prompt asks Claude which sound your words mean ("something dreamy and 80s") when it can't tell from the words alone. It needs an Anthropic API key on the server. Put it in `.env.local`, which git ignores, then restart `npm run dev`:
 
 ```bash
 echo 'ANTHROPIC_API_KEY=sk-ant-...' >> .env.local
 ```
 
-Only your words and the song's settings (tempo, key, style, track names) are sent, never recordings or lyrics. Without a key, everything else works and the box says it isn't set up.
+Only your words and the hum's tempo and key are sent, never recordings or lyrics. Without a key, everything else works and the prompt only reads instrument names.
 
 ## Test on your phone
 
@@ -85,18 +85,12 @@ stop it (Ctrl+C) when you're done.
 - Tap **Export MIDI**, then open the file in another DAW (GarageBand, Logic, Ableton…): one track per part, drums
   on the drum channel, the right tempo.
 
-### Describe it checks (M5)
+### Style and instrument checks (M5)
 
-With `ANTHROPIC_API_KEY` in `.env.local` (see Describe it above), open a sketch with a hum in the studio:
+Open an idea with a hum in the studio:
 
 - Tap the Style chip: pick each drum feel, then chords, chord rhythm, bass and energy. Generated parts change straight away, and one Undo takes each pick back.
-- Type "slower, half time, chill" in Describe it. The summary line names each change before anything happens. Apply it, listen, then Undo once: everything comes back.
-- Try "in D", then "darker": the key chip changes, and your hum moves with it (minor lowers its 3rd, 6th and 7th). Drums never move.
-- Try "put the hook on strings": the hum's track plays as strings.
-- Speak a description with the mic button, on a phone too.
-- Turn off Wi-Fi and describe something: it should say it couldn't reach Claude. Remove the key and restart: it should say Describe it isn't set up.
-- On a melody card, type "something dreamy and 80s" into the instrument prompt: Claude should offer a sound.
-- Export MIDI after a key change: the file has the moved notes.
+- With `ANTHROPIC_API_KEY` set, type "something dreamy and 80s" into a melody card's instrument prompt: Claude should offer a sound.
 
 ## Sound credits
 

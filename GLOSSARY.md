@@ -22,5 +22,5 @@ The words hum's code and issues use, and what they mean here.
 - **Clip**: a stretch of notes on a Track, placed at a bar.
 - **Plan**: the musical frame Generators write into: tempo, key, scale, beats per bar, how many bars the melody lasts, and the Style.
 - **Style**: how an Arrangement's generated parts play: the drum feel, chord color and rhythm, bass line, and energy. Saved with the Arrangement; no Style plays as M3 did (pop/rock, triads, held, roots, medium).
-- **Direction**: what hum read from a songwriter's description of the song (with Claude): only the changes asked for, like a tempo or a Style. Shown back as one line before it's applied, and applied as one undo step.
+- **Direction**: what Claude read from a songwriter's words. Only a melody card's instrument prompt asks for one now, and only its instrument for that hum is used.
 - **Generator**: a pure function from a Plan and the melody to a part (chords, bass, drums). The same melody always gives the same part. Generated Tracks are rewritten when parts are generated again; nothing else is touched.
