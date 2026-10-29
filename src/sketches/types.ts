@@ -56,11 +56,16 @@ export type ColorInput = { kind: "color"; hex: string };
 /** Everything a capture can add to a sketch. */
 export type IdeaInput = NoteInput | VoiceInput | LyricsInput | ImageInput | LinkInput | ColorInput;
 
+/** Where an Idea's card sits on the sketch's canvas: its top left corner, in canvas pixels. */
+export type Place = { x: number; y: number };
+
 export type Idea = IdeaInput & {
   id: string;
   sketchId: string;
   order: number;
   createdAt: number;
+  /** Missing until the card is first laid out on the canvas. */
+  place?: Place;
 };
 
 export type VoiceIdea = Extract<Idea, { kind: "voice" }>;

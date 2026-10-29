@@ -304,6 +304,65 @@ describe("sketch store", () => {
     });
   });
 
+  describe("places on the canvas", () => {
+    async function sketchWith(...texts: string[]) {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      const ideas = [];
+      for (const text of texts) ideas.push(await store.addIdea(sketch.id, { kind: "note", text }));
+      return { store, sketch, ideas };
+    }
+
+    it("leaves a new idea with no place", async () => {
+      const { store, ideas } = await sketchWith("a");
+      expect((await store.getIdea(ideas[0].id))?.place).toBeUndefined();
+    });
+
+    it("places an idea anywhere, rounded to whole pixels, and moves its sketch to the top", async () => {
+      const { store, sketch, ideas } = await sketchWith("a", "b");
+      await store.createSketch("Newer");
+      await store.placeIdea(ideas[1].id, { x: -120.4, y: 310.6 });
+      expect((await store.getIdea(ideas[1].id))?.place).toEqual({ x: -120, y: 311 });
+      expect((await store.getIdea(ideas[0].id))?.place).toBeUndefined();
+      expect((await store.listSketches())[0].id).toBe(sketch.id);
+    });
+
+    it("keeps the order when an idea is placed", async () => {
+      const { store, sketch, ideas } = await sketchWith("a", "b", "c");
+      await store.placeIdea(ideas[0].id, { x: 900, y: 900 });
+      expect((await store.listIdeas(sketch.id)).map((i) => i.id)).toEqual(ideas.map((i) => i.id));
+    });
+
+    it("rejects placing an idea that isn't there", async () => {
+      const store = freshStore();
+      await expect(store.placeIdea("missing", { x: 0, y: 0 })).rejects.toThrow();
+    });
+
+    it("lays out ideas that have no place yet, without moving placed ones or the sketch", async () => {
+      const { store, sketch, ideas } = await sketchWith("a", "b", "c");
+      await store.placeIdea(ideas[0].id, { x: 5, y: 5 });
+      const newer = await store.createSketch("Newer");
+      await store.layOutIdeas({
+        [ideas[0].id]: { x: 999, y: 999 },
+        [ideas[1].id]: { x: 256.2, y: 0 },
+        [ideas[2].id]: { x: 512, y: 0 },
+        missing: { x: 1, y: 1 },
+      });
+      const places = (await store.listIdeas(sketch.id)).map((i) => i.place);
+      expect(places).toEqual([{ x: 5, y: 5 }, { x: 256, y: 0 }, { x: 512, y: 0 }]);
+      expect((await store.listSketches())[0].id).toBe(newer.id);
+    });
+
+    it("keeps an idea's place when its content is edited", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      const idea = await store.addIdea(sketch.id, { kind: "lyrics", doc: { type: "doc" } });
+      await store.placeIdea(idea.id, { x: 40, y: 80 });
+      await store.updateIdea(idea.id, { kind: "lyrics", doc: { type: "doc", content: [] } });
+      expect((await store.getIdea(idea.id))?.place).toEqual({ x: 40, y: 80 });
+    });
+  });
+
   it("renames a sketch, trimming spaces and moving it to the top", async () => {
     const store = freshStore();
     const sketch = await store.createSketch("Sketch, 27 Oct");

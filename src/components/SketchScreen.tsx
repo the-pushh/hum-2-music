@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Masonry } from "masonic";
 import { ArrowLeft, Check, MusicNotes, PencilSimple, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
 import { deleteIdea, deleteSketch, sketchStore } from "@/sketches/client";
@@ -13,7 +12,7 @@ import { Button } from "./Button";
 import { CaptureBar } from "./CaptureBar";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EditableTitle } from "./EditableTitle";
-import { IdeaCard } from "./IdeaCard";
+import { IdeaCanvas } from "./IdeaCanvas";
 import { ideaSummary } from "./ideaSummary";
 
 /** " and its 1 idea" / " and all 3 of its ideas" / "" for an empty sketch. */
@@ -73,37 +72,39 @@ export function SketchScreen({ id }: { id: string }) {
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4 py-8">
-      <header className="flex flex-col gap-3">
-        <Link
-          href="/"
-          className="inline-flex w-fit items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-        >
-          <ArrowLeft size={16} aria-hidden />
-          All sketches
-        </Link>
-        {sketch ? (
-          <EditableTitle
-            title={sketch.title}
-            onRename={(title) => attempt(() => sketchStore().renameSketch(id, title), "The new name couldn't be saved. Try again.")}
-          />
-        ) : (
-          <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
-        )}
-      </header>
+    <main className="flex h-dvh w-full flex-col gap-6 pt-8 pb-4">
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4">
+        <header className="flex flex-col gap-3">
+          <Link
+            href="/"
+            className="inline-flex w-fit items-center gap-2 rounded-lg py-1 text-sm font-semibold text-ink-muted transition duration-300 ease-soft hover:text-ink active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+          >
+            <ArrowLeft size={16} aria-hidden />
+            All sketches
+          </Link>
+          {sketch ? (
+            <EditableTitle
+              title={sketch.title}
+              onRename={(title) => attempt(() => sketchStore().renameSketch(id, title), "The new name couldn't be saved. Try again.")}
+            />
+          ) : (
+            <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
+          )}
+        </header>
 
-      <div className="w-full max-w-xl">
-        <CaptureBar openSketchId={id} />
+        <div className="w-full max-w-xl">
+          <CaptureBar openSketchId={id} />
+        </div>
       </div>
 
-      <section aria-label="Ideas" className="flex flex-col gap-3">
+      <section aria-label="Ideas" className="flex min-h-0 flex-1 flex-col gap-3 px-4">
         {actionError && (
-          <p role="alert" className="text-sm text-accent">
+          <p role="alert" className="mx-auto w-full max-w-5xl text-sm text-accent">
             {actionError}
           </p>
         )}
         {sketch && (
-          <div className="flex justify-end gap-2">
+          <div className="mx-auto flex w-full max-w-5xl justify-end gap-2">
             {!editing && (
               <Link
                 href={`/s/${id}/studio`}
@@ -126,35 +127,38 @@ export function SketchScreen({ id }: { id: string }) {
           </div>
         )}
         {ideas === undefined ? (
-          <div className="grid grid-cols-2 gap-3" aria-hidden>
+          <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-3" aria-hidden>
             {[0, 1, 2, 3].map((i) => (
               <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface" />
             ))}
           </div>
         ) : ideas.length === 0 ? (
-          <div className="rounded-2xl bg-surface p-6">
+          <div className="mx-auto w-full max-w-5xl rounded-2xl bg-surface p-6">
             <p className="text-base text-ink">Nothing in this sketch yet.</p>
             <p className="text-sm text-ink-muted">Write lyrics, hum a melody or beatbox a beat to start collecting the pieces of this song.</p>
           </div>
         ) : editing ? (
-          <div className="w-full max-w-xl">
-            <ArrangeList
-              ideas={ideas}
-              onMove={(ideaId, to) =>
-                attempt(() => sketchStore().moveIdea(ideaId, to), "The new order couldn't be saved. Try moving it again.")
-              }
-              onDelete={(idea) => setConfirming({ kind: "idea", idea })}
-            />
+          <div className="mx-auto w-full max-w-5xl overflow-y-auto">
+            <div className="w-full max-w-xl">
+              <ArrangeList
+                ideas={ideas}
+                onMove={(ideaId, to) =>
+                  attempt(() => sketchStore().moveIdea(ideaId, to), "The new order couldn't be saved. Try moving it again.")
+                }
+                onDelete={(idea) => setConfirming({ kind: "idea", idea })}
+              />
+            </div>
           </div>
         ) : (
-          <Masonry
-            key={ideas.map((i) => i.id).join()}
-            items={ideas}
-            itemKey={(idea) => idea.id}
-            render={IdeaCard}
-            columnWidth={240}
-            columnGutter={12}
-          />
+          <div className="min-h-0 flex-1">
+            <IdeaCanvas
+              ideas={ideas}
+              onPlace={(ideaId, place) =>
+                attempt(() => sketchStore().placeIdea(ideaId, place), "That card's new spot couldn't be saved. Try moving it again.")
+              }
+              onLayOut={(places) => attempt(() => sketchStore().layOutIdeas(places), "The cards' places couldn't be saved.")}
+            />
+          </div>
         )}
       </section>
       {confirming && (

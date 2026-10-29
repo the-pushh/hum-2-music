@@ -1,7 +1,7 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { InstrumentId } from "@/instruments/instruments";
 import type { Transcription } from "@/melody/types";
-import type { Arrangement, ArrangementInput, Idea, IdeaInput, Sketch, VoiceIdea } from "./types";
+import type { Arrangement, ArrangementInput, Idea, IdeaInput, Place, Sketch, VoiceIdea } from "./types";
 
 type HumDb = Dexie & {
   sketches: EntityTable<Sketch, "id">;
@@ -81,8 +81,8 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
       const idea = await db.ideas.get(id);
       if (!idea) throw new Error(`Idea ${id} not found`);
       if (idea.kind !== input.kind) throw new Error(`Idea ${id} is ${idea.kind}, not ${input.kind}`);
-      const { sketchId, order, createdAt } = idea;
-      await db.ideas.put({ ...input, id, sketchId, order, createdAt });
+      const { sketchId, order, createdAt, place } = idea;
+      await db.ideas.put({ ...input, id, sketchId, order, createdAt, ...(place && { place }) });
       await db.sketches.update(sketchId, { updatedAt: now() });
     });
   }
@@ -123,6 +123,30 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
+  /** Puts an idea's card somewhere on the canvas. A songwriter's move, so the sketch moves to the top of the list. */
+  async function placeIdea(id: string, { x, y }: Place): Promise<void> {
+    await db.transaction("rw", db.sketches, db.ideas, async () => {
+      const idea = await db.ideas.get(id);
+      if (!idea) throw new Error(`Idea ${id} not found`);
+      await db.ideas.update(id, { place: { x: Math.round(x), y: Math.round(y) } });
+      await db.sketches.update(idea.sketchId, { updatedAt: now() });
+    });
+  }
+
+  /**
+   * Gives places to ideas that have none yet, by idea id: the canvas's automatic layout. Ideas already placed, or no
+   * longer there, are skipped. Not an edit, so no sketch moves in the list.
+   */
+  async function layOutIdeas(places: Record<string, Place>): Promise<void> {
+    await db.transaction("rw", db.ideas, async () => {
+      const ideas = await db.ideas.bulkGet(Object.keys(places));
+      const unplaced = ideas.filter((i): i is Idea => !!i && !i.place);
+      await db.ideas.bulkUpdate(
+        unplaced.map(({ id }) => ({ key: id, changes: { place: { x: Math.round(places[id].x), y: Math.round(places[id].y) } } })),
+      );
+    });
+  }
+
   async function removeIdea(id: string): Promise<void> {
     await db.ideas.delete(id);
   }
@@ -151,7 +175,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, removeIdea, capture, getArrangement, saveArrangement };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, placeIdea, layOutIdeas, removeIdea, capture, getArrangement, saveArrangement };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;
