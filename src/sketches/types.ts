@@ -2,6 +2,16 @@ import type { InstrumentId } from "@/instruments/instruments";
 import type { Take, Transcription } from "@/melody/types";
 import type { Project } from "@/studio/types";
 
+/** Where a piece of a page sits on its canvas: its top left corner, in canvas pixels. */
+export type Place = { x: number; y: number };
+
+/**
+ * Where everything on one page's canvas sits, by piece: "home", "sketch:<id>" or "studio:<id>". A piece is a section
+ * of the page (its title, the capture bar) or a card (an Idea or a Sketch, by its id). Pieces not in it yet are laid out
+ * by hum.
+ */
+export type Layout = { id: string; places: Record<string, Place> };
+
 export type Sketch = {
   id: string;
   title: string;

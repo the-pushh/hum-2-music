@@ -304,6 +304,100 @@ describe("sketch store", () => {
     });
   });
 
+  describe("layouts", () => {
+    it("still reads Sketches, Ideas and arrangements saved before layouts existed", async () => {
+      const name = `test-${n++}`;
+      const old = new Dexie(name);
+      old.version(1).stores({ sketches: "id, updatedAt", ideas: "id, sketchId, [sketchId+order]" });
+      old.version(2).stores({ arrangements: "sketchId" });
+      await old.table("sketches").add({ id: "s1", title: "From M5", createdAt: 1, updatedAt: 1 });
+      await old.table("ideas").add({ id: "i1", sketchId: "s1", order: 0, createdAt: 1, kind: "note", text: "kept" });
+      old.close();
+
+      const store = openSketchStore({ name });
+      expect((await store.getSketch("s1"))?.title).toBe("From M5");
+      expect((await store.listIdeas("s1")).map((i) => i.id)).toEqual(["i1"]);
+      expect(await store.getLayout("sketch:s1")).toBeUndefined();
+    });
+
+    it("has no layout for a page nothing has been placed on", async () => {
+      const store = freshStore();
+      expect(await store.getLayout("home")).toBeUndefined();
+    });
+
+    it("places a piece anywhere, rounded to whole pixels, keeping the other pieces", async () => {
+      const store = freshStore();
+      await store.placePiece("home", "capture", { x: 10, y: 20 });
+      await store.placePiece("home", "title", { x: -120.4, y: 310.6 });
+      expect(await store.getLayout("home")).toEqual({
+        id: "home",
+        places: { capture: { x: 10, y: 20 }, title: { x: -120, y: 311 } },
+      });
+    });
+
+    it("moves a piece that was already placed", async () => {
+      const store = freshStore();
+      await store.placePiece("home", "title", { x: 0, y: 0 });
+      await store.placePiece("home", "title", { x: 48, y: 96 });
+      expect((await store.getLayout("home"))?.places).toEqual({ title: { x: 48, y: 96 } });
+    });
+
+    it("keeps each page's layout apart", async () => {
+      const store = freshStore();
+      await store.placePiece("home", "title", { x: 1, y: 1 });
+      await store.placePiece("sketch:a", "title", { x: 2, y: 2 });
+      expect((await store.getLayout("home"))?.places.title).toEqual({ x: 1, y: 1 });
+      expect((await store.getLayout("sketch:a"))?.places.title).toEqual({ x: 2, y: 2 });
+    });
+
+    it("lays out pieces that have no place yet, leaving placed ones alone", async () => {
+      const store = freshStore();
+      await store.placePiece("home", "title", { x: 5, y: 5 });
+      await store.layOutPieces("home", { title: { x: 999, y: 999 }, capture: { x: 0, y: 120.2 } });
+      expect((await store.getLayout("home"))?.places).toEqual({ title: { x: 5, y: 5 }, capture: { x: 0, y: 120 } });
+    });
+
+    it("resets a page's layout, leaving other pages alone", async () => {
+      const store = freshStore();
+      await store.placePiece("sketch:a", "title", { x: 40, y: 80 });
+      await store.placePiece("home", "title", { x: 1, y: 1 });
+      await store.resetLayout("sketch:a");
+      expect(await store.getLayout("sketch:a")).toBeUndefined();
+      expect((await store.getLayout("home"))?.places).toEqual({ title: { x: 1, y: 1 } });
+    });
+
+    it("doesn't move a sketch up the list when its page is arranged", async () => {
+      const store = freshStore();
+      const older = await store.createSketch("Older");
+      await store.createSketch("Newer");
+      await store.placePiece(`sketch:${older.id}`, "title", { x: 0, y: 0 });
+      expect((await store.listSketches()).map((s) => s.title)).toEqual(["Newer", "Older"]);
+    });
+
+    it("forgets an idea's place when the idea is removed", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      const keep = await store.addIdea(sketch.id, { kind: "note", text: "keep" });
+      const drop = await store.addIdea(sketch.id, { kind: "note", text: "drop" });
+      await store.layOutPieces(`sketch:${sketch.id}`, { [keep.id]: { x: 0, y: 0 }, [drop.id]: { x: 264, y: 0 } });
+      await store.removeIdea(drop.id);
+      expect((await store.getLayout(`sketch:${sketch.id}`))?.places).toEqual({ [keep.id]: { x: 0, y: 0 } });
+    });
+
+    it("forgets a deleted sketch's pages and its place on the home page", async () => {
+      const store = freshStore();
+      const gone = await store.createSketch("Gone");
+      const kept = await store.createSketch("Kept");
+      await store.layOutPieces("home", { [gone.id]: { x: 0, y: 0 }, [kept.id]: { x: 264, y: 0 } });
+      await store.placePiece(`sketch:${gone.id}`, "title", { x: 0, y: 0 });
+      await store.placePiece(`studio:${gone.id}`, "timeline", { x: 0, y: 0 });
+      await store.deleteSketch(gone.id);
+      expect((await store.getLayout("home"))?.places).toEqual({ [kept.id]: { x: 264, y: 0 } });
+      expect(await store.getLayout(`sketch:${gone.id}`)).toBeUndefined();
+      expect(await store.getLayout(`studio:${gone.id}`)).toBeUndefined();
+    });
+  });
+
   it("renames a sketch, trimming spaces and moving it to the top", async () => {
     const store = freshStore();
     const sketch = await store.createSketch("Sketch, 27 Oct");

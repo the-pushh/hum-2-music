@@ -76,3 +76,8 @@
     @apply absolute top-1 right-0 font-mono text-xs text-ink-muted tabular-nums;
   }
 }
+
+/* Holding a piece on a phone lifts it to move it, so no link preview or copy menu pops up instead. */
+.canvas-piece {
+  -webkit-touch-callout: none;
+}

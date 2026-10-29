@@ -4,6 +4,7 @@ import { DRUM_PITCH } from "@/studio/music";
 import { useProjectStore } from "@/studio/store/project";
 import { arrangementBars, previewNote } from "@/studio/transport";
 import type { Clip, Note, Track } from "@/studio/types";
+import { canvasControl } from "@/ui/canvasLayout";
 
 /** The kit's rows, top to bottom, on General MIDI pitches. */
 const rows = [
@@ -51,7 +52,7 @@ export function DrumGrid({ track }: { track: Track }) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-xs text-ink-muted">Tap a step to add a hit, again to accent it, and once more to clear it.</p>
-      <div className="overflow-x-auto rounded-2xl bg-canvas select-none">
+      <div className={`overflow-x-auto rounded-2xl bg-canvas select-none ${canvasControl}`}>
         <table className="border-separate border-spacing-0.5">
           <tbody>
             {rows.map((row) => (
