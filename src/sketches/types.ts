@@ -2,16 +2,21 @@ import type { InstrumentId } from "@/instruments/instruments";
 import type { Take, Transcription } from "@/melody/types";
 import type { Project } from "@/studio/types";
 
-/** Where a card sits on a canvas (a Sketch on the home page, an Idea on its Sketch's page): its top left corner, in canvas pixels. */
+/** Where a piece of a page sits on its canvas: its top left corner, in canvas pixels. */
 export type Place = { x: number; y: number };
+
+/**
+ * Where everything on one page's canvas sits, by piece: "home", "sketch:<id>" or "studio:<id>". A piece is a section
+ * of the page (its title, the capture bar) or a card (an Idea or a Sketch, by its id). Pieces not in it yet are laid out
+ * by hum.
+ */
+export type Layout = { id: string; places: Record<string, Place> };
 
 export type Sketch = {
   id: string;
   title: string;
   createdAt: number;
   updatedAt: number;
-  /** Missing until the sketch's card is first laid out on the home canvas. */
-  place?: Place;
 };
 
 export type NoteInput = { kind: "note"; text: string };
@@ -66,8 +71,6 @@ export type Idea = IdeaInput & {
   sketchId: string;
   order: number;
   createdAt: number;
-  /** Missing until the card is first laid out on the canvas. */
-  place?: Place;
 };
 
 export type VoiceIdea = Extract<Idea, { kind: "voice" }>;

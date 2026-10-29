@@ -1,12 +1,13 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { InstrumentId } from "@/instruments/instruments";
 import type { Transcription } from "@/melody/types";
-import type { Arrangement, ArrangementInput, Idea, IdeaInput, Place, Sketch, VoiceIdea } from "./types";
+import type { Arrangement, ArrangementInput, Idea, IdeaInput, Layout, Place, Sketch, VoiceIdea } from "./types";
 
 type HumDb = Dexie & {
   sketches: EntityTable<Sketch, "id">;
   ideas: EntityTable<Idea, "id">;
   arrangements: EntityTable<Arrangement, "sketchId">;
+  layouts: EntityTable<Layout, "id">;
 };
 
 const dayMonth = new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short" });
@@ -20,6 +21,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     ideas: "id, sketchId, [sketchId+order]",
   });
   db.version(2).stores({ arrangements: "sketchId" });
+  db.version(3).stores({ layouts: "id" });
 
   async function createSketch(title: string): Promise<Sketch> {
     const t = now();
@@ -35,29 +37,14 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     await db.sketches.update(id, { title: trimmed, updatedAt: now() });
   }
 
-  /** Deletes a sketch with every idea in it and its arrangement. */
+  /** Deletes a sketch with every idea in it, its arrangement, its pages' layouts and its place on the home page. */
   async function deleteSketch(id: string): Promise<void> {
-    await db.transaction("rw", db.sketches, db.ideas, db.arrangements, async () => {
+    await db.transaction("rw", [db.sketches, db.ideas, db.arrangements, db.layouts], async () => {
       await db.ideas.where("sketchId").equals(id).delete();
       await db.arrangements.delete(id);
+      await db.layouts.bulkDelete([`sketch:${id}`, `studio:${id}`]);
+      await forgetPiece("home", id);
       await db.sketches.delete(id);
-    });
-  }
-
-  /** Puts a sketch's card somewhere on the home canvas. Not an edit of the sketch, so it keeps its place in the list. */
-  async function placeSketch(id: string, { x, y }: Place): Promise<void> {
-    const changed = await db.sketches.update(id, { place: { x: Math.round(x), y: Math.round(y) } });
-    if (!changed && !(await getSketch(id))) throw new Error(`Sketch ${id} not found`);
-  }
-
-  /** Gives places to sketches that have none yet, by sketch id: the home canvas's automatic layout. */
-  async function layOutSketches(places: Record<string, Place>): Promise<void> {
-    await db.transaction("rw", db.sketches, async () => {
-      const sketches = await db.sketches.bulkGet(Object.keys(places));
-      const unplaced = sketches.filter((s): s is Sketch => !!s && !s.place);
-      await db.sketches.bulkUpdate(
-        unplaced.map(({ id }) => ({ key: id, changes: { place: { x: Math.round(places[id].x), y: Math.round(places[id].y) } } })),
-      );
     });
   }
 
@@ -98,8 +85,8 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
       const idea = await db.ideas.get(id);
       if (!idea) throw new Error(`Idea ${id} not found`);
       if (idea.kind !== input.kind) throw new Error(`Idea ${id} is ${idea.kind}, not ${input.kind}`);
-      const { sketchId, order, createdAt, place } = idea;
-      await db.ideas.put({ ...input, id, sketchId, order, createdAt, ...(place && { place }) });
+      const { sketchId, order, createdAt } = idea;
+      await db.ideas.put({ ...input, id, sketchId, order, createdAt });
       await db.sketches.update(sketchId, { updatedAt: now() });
     });
   }
@@ -140,32 +127,43 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  /** Puts an idea's card somewhere on the canvas. A songwriter's move, so the sketch moves to the top of the list. */
-  async function placeIdea(id: string, { x, y }: Place): Promise<void> {
-    await db.transaction("rw", db.sketches, db.ideas, async () => {
-      const idea = await db.ideas.get(id);
-      if (!idea) throw new Error(`Idea ${id} not found`);
-      await db.ideas.update(id, { place: { x: Math.round(x), y: Math.round(y) } });
-      await db.sketches.update(idea.sketchId, { updatedAt: now() });
-    });
-  }
-
-  /**
-   * Gives places to ideas that have none yet, by idea id: the canvas's automatic layout. Ideas already placed, or no
-   * longer there, are skipped. Not an edit, so no sketch moves in the list.
-   */
-  async function layOutIdeas(places: Record<string, Place>): Promise<void> {
-    await db.transaction("rw", db.ideas, async () => {
-      const ideas = await db.ideas.bulkGet(Object.keys(places));
-      const unplaced = ideas.filter((i): i is Idea => !!i && !i.place);
-      await db.ideas.bulkUpdate(
-        unplaced.map(({ id }) => ({ key: id, changes: { place: { x: Math.round(places[id].x), y: Math.round(places[id].y) } } })),
-      );
-    });
-  }
-
+  /** Deletes an idea and forgets where its card sat. */
   async function removeIdea(id: string): Promise<void> {
-    await db.ideas.delete(id);
+    await db.transaction("rw", db.ideas, db.layouts, async () => {
+      const idea = await db.ideas.get(id);
+      await db.ideas.delete(id);
+      if (idea) await forgetPiece(`sketch:${idea.sketchId}`, id);
+    });
+  }
+
+  function getLayout(id: string): Promise<Layout | undefined> {
+    return db.layouts.get(id);
+  }
+
+  const rounded = ({ x, y }: Place): Place => ({ x: Math.round(x), y: Math.round(y) });
+
+  /** Puts one piece of a page somewhere on its canvas. Arranging isn't editing, so no sketch moves up the list. */
+  async function placePiece(layoutId: string, pieceId: string, place: Place): Promise<void> {
+    await db.transaction("rw", db.layouts, async () => {
+      const places = (await db.layouts.get(layoutId))?.places ?? {};
+      await db.layouts.put({ id: layoutId, places: { ...places, [pieceId]: rounded(place) } });
+    });
+  }
+
+  /** Gives places to pieces that have none yet: hum's own layout. Pieces already placed keep their place. */
+  async function layOutPieces(layoutId: string, places: Record<string, Place>): Promise<void> {
+    await db.transaction("rw", db.layouts, async () => {
+      const placed = (await db.layouts.get(layoutId))?.places ?? {};
+      const fresh = Object.fromEntries(Object.entries(places).map(([id, place]) => [id, rounded(place)]));
+      await db.layouts.put({ id: layoutId, places: { ...fresh, ...placed } });
+    });
+  }
+
+  async function forgetPiece(layoutId: string, pieceId: string) {
+    const layout = await db.layouts.get(layoutId);
+    if (!layout || !(pieceId in layout.places)) return;
+    const { [pieceId]: _gone, ...places } = layout.places; // eslint-disable-line @typescript-eslint/no-unused-vars
+    await db.layouts.put({ id: layoutId, places });
   }
 
   function getArrangement(sketchId: string): Promise<Arrangement | undefined> {
@@ -192,7 +190,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, placeSketch, layOutSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, placeIdea, layOutIdeas, removeIdea, capture, getArrangement, saveArrangement };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, removeIdea, capture, getArrangement, saveArrangement, getLayout, placePiece, layOutPieces };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_GAP, CARD_WIDTH, columnLayout, fitView, freeSpot, type Rect } from "./canvasLayout";
+import { CARD_GAP, CARD_WIDTH, columnLayout, freeSpot, pageView, stack, type Rect } from "./canvasLayout";
 
 const overlaps = (a: Rect, b: Rect) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 
@@ -21,6 +21,11 @@ describe("column layout", () => {
       c: { x: col, y: 100 + CARD_GAP },
       d: { x: col, y: 200 + 2 * CARD_GAP },
     });
+  });
+
+  it("starts lower down and keeps the gap it's given", () => {
+    const places = columnLayout([{ id: "a", h: 100 }, { id: "b", h: 50 }, { id: "c", h: 10 }], 2, { gap: 12, top: 400 });
+    expect(places).toEqual({ a: { x: 0, y: 400 }, b: { x: CARD_WIDTH + 12, y: 400 }, c: { x: CARD_WIDTH + 12, y: 462 } });
   });
 
   it("uses at least one column", () => {
@@ -48,6 +53,11 @@ describe("free spot", () => {
     expect(overlaps(grown, taken[0])).toBe(false);
   });
 
+  it("can keep a smaller gap", () => {
+    const taken: Rect[] = [{ x: 0, y: 0, w: 576, h: 64 }];
+    expect(freeSpot(taken, { w: 576, h: 64 }, { x: 288, y: 72 + 32 }, 8)).toEqual({ x: 0, y: 72 });
+  });
+
   it("finds room on a crowded canvas", () => {
     const taken: Rect[] = [];
     for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++) taken.push({ x: c * 264, y: r * 264, w: 240, h: 240 });
@@ -56,32 +66,37 @@ describe("free spot", () => {
   });
 });
 
-describe("fit view", () => {
+describe("stack", () => {
+  it("puts sections one under another, at the left or right edge, and says where it ended", () => {
+    const { places, bottom } = stack(
+      [
+        { id: "title", size: { w: 300, h: 80 } },
+        { id: "capture", size: { w: 576, h: 200 } },
+        { id: "tools", size: { w: 200, h: 40 }, align: "end" },
+      ],
+      { width: 1024, gap: 24 },
+    );
+    expect(places).toEqual({ title: { x: 0, y: 0 }, capture: { x: 0, y: 104 }, tools: { x: 824, y: 328 } });
+    expect(bottom).toBe(368);
+  });
+
+  it("starts where it's told", () => {
+    expect(stack([{ id: "a", size: { w: 10, h: 10 } }], { width: 100, gap: 8, top: 50 })).toEqual({ places: { a: { x: 0, y: 50 } }, bottom: 60 });
+  });
+});
+
+describe("page view", () => {
   const viewport = { w: 1000, h: 600 };
 
   it("shows the canvas origin at actual size when there's nothing on it", () => {
-    expect(fitView([], viewport)).toEqual({ x: 48, y: 48, scale: 1 });
+    expect(pageView([], viewport)).toEqual({ x: 16, y: 32, scale: 1 });
   });
 
-  it("centres a small group of cards at actual size", () => {
-    expect(fitView([{ x: 0, y: 0, w: 200, h: 100 }], viewport)).toEqual({ x: 400, y: 250, scale: 1 });
+  it("shows the page at actual size from its top, centred when it fits", () => {
+    expect(pageView([{ x: 0, y: 0, w: 600, h: 2000 }], viewport)).toEqual({ x: 200, y: 32, scale: 1 });
   });
 
-  it("zooms out until every card fits inside the padding", () => {
-    const view = fitView(
-      [
-        { x: 0, y: 0, w: 240, h: 200 },
-        { x: 1760, y: 800, w: 240, h: 200 },
-      ],
-      viewport,
-    );
-    expect(view.scale).toBeCloseTo((1000 - 2 * 48) / 2000);
-    // The group's left edge sits at the padding, and it's centred vertically.
-    expect(view.x).toBeCloseTo(48);
-    expect(view.y).toBeCloseTo((600 - 1000 * view.scale) / 2);
-  });
-
-  it("never zooms out past the smallest scale", () => {
-    expect(fitView([{ x: 0, y: 0, w: 100000, h: 100 }], viewport, { minScale: 0.2 }).scale).toBe(0.2);
+  it("starts from the left edge, with a gutter, when the page is wider than the screen", () => {
+    expect(pageView([{ x: -100, y: 50, w: 1500, h: 100 }], viewport)).toEqual({ x: 116, y: -18, scale: 1 });
   });
 });

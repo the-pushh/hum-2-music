@@ -6,15 +6,23 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft, Check, MusicNotes, PencilSimple, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
 import { deleteIdea, deleteSketch, sketchStore } from "@/sketches/client";
-import type { Idea } from "@/sketches/types";
+import type { Idea, Place } from "@/sketches/types";
+import { CARD_WIDTH, columnLayout, stack, type Size } from "@/ui/canvasLayout";
 import { ArrangeList } from "./ArrangeList";
 import { Button } from "./Button";
 import { CaptureBar } from "./CaptureBar";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EditableTitle } from "./EditableTitle";
-import { FreeCanvas } from "./FreeCanvas";
+import { FreeCanvas, useScreenWidth, type Piece } from "./FreeCanvas";
 import { IdeaCard } from "./IdeaCard";
 import { ideaSummary } from "./ideaSummary";
+
+/** The page's widths before it was a canvas: max-w-5xl for the page, max-w-xl for the capture bar and the list. */
+const PAGE_WIDTH = 1024;
+const CAPTURE_WIDTH = 576;
+const ARRANGE_WIDTH = 576;
+/** The old grid's gutter. */
+const IDEAS_GAP = 12;
 
 /** " and its 1 idea" / " and all 3 of its ideas" / "" for an empty sketch. */
 function andItsIdeas(n: number) {
@@ -27,6 +35,8 @@ export function SketchScreen({ id }: { id: string }) {
   const sketch = useLiveQuery(async () => (await sketchStore().getSketch(id)) ?? null, [id]);
   const ideas = useLiveQuery(() => sketchStore().listIdeas(id), [id]);
   const router = useRouter();
+  // As wide as the page was: the screen less its gutters, up to max-w-5xl.
+  const pageWidth = Math.min(useScreenWidth() - 32, PAGE_WIDTH);
   const [editing, setEditing] = useState(false);
   const [confirming, setConfirming] = useState<{ kind: "idea"; idea: Idea } | { kind: "sketch" } | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -72,9 +82,47 @@ export function SketchScreen({ id }: { id: string }) {
     );
   }
 
-  return (
-    <main className="flex h-dvh w-full flex-col gap-6 pt-8 pb-4">
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 px-4">
+  if (sketch === undefined || ideas === undefined) return <main className="mx-auto w-full max-w-5xl px-4 py-8" aria-busy />;
+
+  const ideaPieces: Piece[] = editing
+    ? [
+        {
+          id: "arrange",
+          label: "Ideas in order",
+          width: Math.min(pageWidth, ARRANGE_WIDTH),
+          node: (
+            <ArrangeList
+              ideas={ideas}
+              onMove={(ideaId, to) =>
+                attempt(() => sketchStore().moveIdea(ideaId, to), "The new order couldn't be saved. Try moving it again.")
+              }
+              onDelete={(idea) => setConfirming({ kind: "idea", idea })}
+            />
+          ),
+        },
+      ]
+    : ideas.length === 0
+      ? [
+          {
+            id: "empty",
+            label: "Nothing in this sketch yet",
+            width: pageWidth,
+            node: (
+              <div className="rounded-2xl bg-surface p-6">
+                <p className="text-base text-ink">Nothing in this sketch yet.</p>
+                <p className="text-sm text-ink-muted">Write lyrics, hum a melody or beatbox a beat to start collecting the pieces of this song.</p>
+              </div>
+            ),
+          },
+        ]
+      : ideas.map((idea) => ({ id: idea.id, label: ideaSummary(idea).label, width: CARD_WIDTH, node: <IdeaCard data={idea} />, arrives: "view" as const }));
+
+  const pieces: Piece[] = [
+    {
+      id: "title",
+      label: "Title",
+      width: pageWidth,
+      node: (
         <header className="flex flex-col gap-3">
           <Link
             href="/"
@@ -83,87 +131,78 @@ export function SketchScreen({ id }: { id: string }) {
             <ArrowLeft size={16} aria-hidden />
             All sketches
           </Link>
-          {sketch ? (
-            <EditableTitle
-              title={sketch.title}
-              onRename={(title) => attempt(() => sketchStore().renameSketch(id, title), "The new name couldn't be saved. Try again.")}
-            />
-          ) : (
-            <div className="h-8 w-1/2 animate-pulse rounded-lg bg-surface" aria-hidden />
-          )}
+          <EditableTitle
+            title={sketch.title}
+            onRename={(title) => attempt(() => sketchStore().renameSketch(id, title), "The new name couldn't be saved. Try again.")}
+          />
         </header>
-
-        <div className="w-full max-w-xl">
-          <CaptureBar openSketchId={id} />
-        </div>
-      </div>
-
-      <section aria-label="Ideas" className="flex min-h-0 flex-1 flex-col gap-3 px-4">
-        {actionError && (
-          <p role="alert" className="mx-auto w-full max-w-5xl text-sm text-accent">
-            {actionError}
-          </p>
-        )}
-        {sketch && (
-          <div className="mx-auto flex w-full max-w-5xl justify-end gap-2">
-            {!editing && (
-              <Link
-                href={`/s/${id}/studio`}
-                className="inline-flex items-center justify-center gap-2 rounded-full bg-melody py-2 pr-4 pl-3 text-base font-semibold text-canvas transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
-              >
-                <MusicNotes size={20} aria-hidden />
-                Open in studio
-              </Link>
-            )}
-            {editing && (
-              <Button variant="ghost" onClick={() => setConfirming({ kind: "sketch" })}>
-                <Trash size={20} aria-hidden />
-                Delete sketch
-              </Button>
-            )}
-            <Button variant="ghost" onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
-              {editing ? <Check size={20} aria-hidden /> : <PencilSimple size={20} aria-hidden />}
-              {editing ? "Done" : "Edit"}
+      ),
+    },
+    { id: "capture", label: "Capture", width: Math.min(pageWidth, CAPTURE_WIDTH), node: <CaptureBar openSketchId={id} /> },
+    {
+      id: "tools",
+      label: "Sketch tools",
+      node: (
+        <div className="flex gap-2">
+          {!editing && (
+            <Link
+              href={`/s/${id}/studio`}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-melody py-2 pr-4 pl-3 text-base font-semibold text-canvas transition duration-300 ease-soft hover:opacity-90 active:scale-98 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
+            >
+              <MusicNotes size={20} aria-hidden />
+              Open in studio
+            </Link>
+          )}
+          {editing && (
+            <Button variant="ghost" onClick={() => setConfirming({ kind: "sketch" })}>
+              <Trash size={20} aria-hidden />
+              Delete sketch
             </Button>
-          </div>
-        )}
-        {ideas === undefined ? (
-          <div className="mx-auto grid w-full max-w-5xl grid-cols-2 gap-3" aria-hidden>
-            {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="h-24 animate-pulse rounded-2xl bg-surface" />
-            ))}
-          </div>
-        ) : ideas.length === 0 ? (
-          <div className="mx-auto w-full max-w-5xl rounded-2xl bg-surface p-6">
-            <p className="text-base text-ink">Nothing in this sketch yet.</p>
-            <p className="text-sm text-ink-muted">Write lyrics, hum a melody or beatbox a beat to start collecting the pieces of this song.</p>
-          </div>
-        ) : editing ? (
-          <div className="mx-auto w-full max-w-5xl overflow-y-auto">
-            <div className="w-full max-w-xl">
-              <ArrangeList
-                ideas={ideas}
-                onMove={(ideaId, to) =>
-                  attempt(() => sketchStore().moveIdea(ideaId, to), "The new order couldn't be saved. Try moving it again.")
-                }
-                onDelete={(idea) => setConfirming({ kind: "idea", idea })}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="min-h-0 flex-1">
-            <FreeCanvas
-              items={ideas}
-              label={(idea) => ideaSummary(idea).label}
-              render={(idea) => <IdeaCard data={idea} />}
-              onPlace={(ideaId, place) =>
-                attempt(() => sketchStore().placeIdea(ideaId, place), "That card's new spot couldn't be saved. Try moving it again.")
-              }
-              onLayOut={(places) => attempt(() => sketchStore().layOutIdeas(places), "The cards' places couldn't be saved.")}
-            />
-          </div>
-        )}
-      </section>
+          )}
+          <Button variant="ghost" onClick={() => setEditing((e) => !e)} aria-pressed={editing}>
+            {editing ? <Check size={20} aria-hidden /> : <PencilSimple size={20} aria-hidden />}
+            {editing ? "Done" : "Edit"}
+          </Button>
+        </div>
+      ),
+    },
+    ...ideaPieces,
+  ];
+
+  /** The page as it was: title, capture bar, the tools on the right, then the ideas in columns. */
+  function firstLayout(sizes: Record<string, Size>): Record<string, Place> {
+    const top = stack(
+      [
+        { id: "title", size: sizes.title },
+        { id: "capture", size: sizes.capture },
+        { id: "tools", size: sizes.tools, align: "end" },
+      ],
+      { width: pageWidth, gap: 24 },
+    );
+    const ideasTop = top.bottom + IDEAS_GAP;
+    const columns = Math.max(1, Math.floor((pageWidth + IDEAS_GAP) / (CARD_WIDTH + IDEAS_GAP)));
+    return {
+      ...top.places,
+      arrange: { x: 0, y: ideasTop },
+      empty: { x: 0, y: ideasTop },
+      ...columnLayout(ideas!.map((i) => ({ id: i.id, h: sizes[i.id]?.h ?? 0 })), columns, { gap: IDEAS_GAP, top: ideasTop }),
+    };
+  }
+
+  return (
+    <main className="h-dvh w-full">
+      <FreeCanvas
+        layoutId={`sketch:${id}`}
+        pieces={pieces}
+        firstLayout={firstLayout}
+        overlay={
+          actionError && (
+            <p role="alert" className="absolute bottom-4 left-4 rounded-lg bg-raised px-3 py-2 text-sm text-accent">
+              {actionError}
+            </p>
+          )
+        }
+      />
       {confirming && (
         <ConfirmDialog
           {...(confirming.kind === "idea"
@@ -174,7 +213,7 @@ export function SketchScreen({ id }: { id: string }) {
               }
             : {
                 title: "Delete this sketch?",
-                body: `"${sketch?.title}"${andItsIdeas(ideas?.length ?? 0)} will be removed. This can't be undone.`,
+                body: `"${sketch.title}"${andItsIdeas(ideas.length)} will be removed. This can't be undone.`,
                 confirmLabel: "Delete sketch",
               })}
           onConfirm={() => void confirmDelete()}

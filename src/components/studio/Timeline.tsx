@@ -9,6 +9,7 @@ import type { Clip, Track } from "@/studio/types";
 import { Playhead } from "./Playhead";
 import { roleBg } from "./roleColors";
 import { TrackSettings } from "./TrackSettings";
+import { canvasControl } from "@/ui/canvasLayout";
 
 /** Pixels per bar along the timeline. */
 const barPx = 128;
@@ -63,7 +64,7 @@ export function Timeline({ title, selectedTrackId, onSelect }: Props) {
         </div>
 
         {/* Ruler and lanes */}
-        <div className="min-w-0 flex-1 overflow-x-auto">
+        <div className={`min-w-0 flex-1 overflow-x-auto ${canvasControl}`}>
           <div className="relative flex flex-col gap-1" style={{ width: bars * barPx }}>
             {Array.from({ length: bars + 1 }, (_, b) => (
               <div key={b} aria-hidden className="pointer-events-none absolute top-6 bottom-0 w-px bg-line" style={{ left: b * barPx }} />

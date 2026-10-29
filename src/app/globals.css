@@ -77,7 +77,7 @@
   }
 }
 
-/* Holding a card on a phone lifts it to move it, so no link preview or copy menu pops up instead. */
-.canvas-card {
+/* Holding a piece on a phone lifts it to move it, so no link preview or copy menu pops up instead. */
+.canvas-piece {
   -webkit-touch-callout: none;
 }
