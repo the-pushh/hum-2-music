@@ -408,9 +408,9 @@ function CanvasPiece({ id, label, width, at, z, children, onSize, onNudge, onFoc
       // Links and pictures would start the browser's own drag and swallow the move; only parts made to be dragged out
       // of the page (the MIDI and Audio chips) keep it.
       onDragStart={(e) => e.target instanceof Element && !e.target.closest('[draggable="true"]') && e.preventDefault()}
-      className={`canvas-piece absolute rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+      className={`canvas-piece absolute rounded-2xl focus-visible:outline-1 focus-visible:outline-offset-2 focus-visible:outline-bass/60 ${
         at ? "" : "invisible"
-      } ${isDragging ? "opacity-90 ring-2 ring-ink" : ""}`}
+      } ${isDragging ? "opacity-90 ring-1 ring-bass/60" : ""}`}
       style={{
         width: width ?? "max-content",
         left: at?.x ?? 0,
