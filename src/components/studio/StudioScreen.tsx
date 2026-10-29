@@ -6,6 +6,7 @@ import { ArrowLeft } from "@phosphor-icons/react";
 import { useArrangement } from "@/studio/useArrangement";
 import { useProjectStore } from "@/studio/store/project";
 import { stopProject } from "@/studio/transport";
+import { useWriter } from "@/studio/write/writer";
 import { Button } from "../Button";
 import { DescribeBox } from "./DescribeBox";
 import { DrumGrid } from "./DrumGrid";
@@ -23,7 +24,13 @@ export function StudioScreen({ sketchId }: { sketchId: string }) {
   const sketch = state.status === "ready" ? state.sketch : undefined;
   const selected = project?.tracks.find((t) => t.id === selectedTrackId);
 
-  useEffect(() => () => stopProject(), []);
+  useEffect(
+    () => () => {
+      stopProject();
+      useWriter.getState().reset();
+    },
+    [],
+  );
 
   if (state.status === "missing") {
     return (

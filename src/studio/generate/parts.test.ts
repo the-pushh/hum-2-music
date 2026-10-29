@@ -292,3 +292,20 @@ describe("whether Claude's parts follow the Style", () => {
   });
 });
 
+describe("Claude's parts and the Style's none", () => {
+  const chords = [60, 64, 67].map((pitch) => ({ pitch, startBeat: 0, duration: 4, velocity: 70 }));
+  const drums = [{ pitch: 36, startBeat: 0, duration: 0.25, velocity: 100 }];
+
+  it("removes a Claude part when the Style sets it to none", () => {
+    const next = withStyle(withClaudeParts(withGeneratedParts(project), { chords }), { chords: "none" });
+    expect(next.tracks.map((t) => t.name)).toEqual(["Hum 1", "Bass", "Drums"]);
+  });
+
+  it("removes Claude's drums once a hummed beat is the drums", () => {
+    const written = withClaudeParts(project, { drums });
+    const beat: Track = { ...melodyTrack, id: "beat", name: "Beat 1", type: "drum", color: "drums", instrumentPreset: "hum-drums", order: 9, origin: { kind: "hum", ideaId: "beat" } };
+    const next = withStyle({ ...written, tracks: [...written.tracks, beat] }, { energy: "high" });
+    expect(next.tracks.filter((t) => t.type === "drum").map((t) => t.name)).toEqual(["Beat 1"]);
+  });
+});
+

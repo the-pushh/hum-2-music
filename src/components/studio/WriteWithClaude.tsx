@@ -2,16 +2,22 @@
 
 import type { FormEvent } from "react";
 import { ArrowsClockwise, PenNib } from "@phosphor-icons/react";
-import { useWriter } from "@/studio/write/writer";
+import { useProjectStore } from "@/studio/store/project";
+import { maxBars, writeRequestOf } from "@/studio/write/request";
+import { errorText, useWriter } from "@/studio/write/writer";
 import { Button } from "../Button";
 
 /**
  * Write with Claude: a button on the transport and the sheet it opens. Claude writes chords, bass and drums for the
  * melody, following the Style and an optional note; hum tidies them onto the generated tracks as one undo step.
- * Another take asks again with the same note; Undo brings back the take before.
+ * Another version asks again with the same note; Undo brings back the version before.
  */
 export function WriteWithClaude({ buttonClassName }: { buttonClassName: string }) {
   const { state, note, setNote, write, cancel } = useWriter();
+  const project = useProjectStore((s) => s.project);
+  // Said up front, so an empty or too long song doesn't cost a trip to Claude.
+  const asked = project ? writeRequestOf(project, note) : null;
+  const blocked = !asked?.parts.length ? errorText["nothing-to-write"] : asked.plan.bars > maxBars ? errorText["too-long"] : null;
 
   function submit(e: FormEvent) {
     e.preventDefault();
@@ -24,10 +30,12 @@ export function WriteWithClaude({ buttonClassName }: { buttonClassName: string }
         <PenNib size={20} aria-hidden />
         <span className="sr-only sm:not-sr-only sm:text-sm sm:font-semibold">Write with Claude</span>
       </button>
-      <div id="studio-write" popover="auto" className="m-auto w-full max-w-md rounded-2xl bg-raised p-4 text-ink backdrop:bg-canvas/60">
+      <div id="studio-write" popover="auto" role="dialog" aria-labelledby="studio-write-title" className="m-auto w-full max-w-md rounded-2xl bg-raised p-4 text-ink backdrop:bg-canvas/60">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <div className="flex flex-col gap-1">
-            <h2 className="text-base font-semibold">Write with Claude</h2>
+            <h2 id="studio-write-title" className="text-base font-semibold">
+              Write with Claude
+            </h2>
             <p className="text-sm text-ink-muted">Claude writes chords, bass and drums for your melody, in the song&apos;s Style.</p>
           </div>
           <label className="flex flex-col gap-1 text-sm font-semibold text-ink-muted">
@@ -43,7 +51,7 @@ export function WriteWithClaude({ buttonClassName }: { buttonClassName: string }
             />
           </label>
 
-          <WriterStatus />
+          {blocked && state.status !== "writing" ? <p className="text-sm text-ink-muted">{blocked}</p> : <WriterStatus />}
 
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-xs text-ink-muted">Your melody&apos;s notes, the song&apos;s settings and this note go to Claude. Recordings and lyrics don&apos;t.</p>
@@ -53,16 +61,16 @@ export function WriteWithClaude({ buttonClassName }: { buttonClassName: string }
               </Button>
             ) : state.status === "written" ? (
               <div className="flex gap-2">
-                <Button type="submit" variant="secondary">
+                <Button type="submit" variant="secondary" disabled={!!blocked}>
                   <ArrowsClockwise size={16} aria-hidden />
-                  Another take
+                  Another version
                 </Button>
                 <Button type="button" popoverTarget="studio-write" popoverTargetAction="hide">
                   Done
                 </Button>
               </div>
             ) : (
-              <Button type="submit">
+              <Button type="submit" disabled={!!blocked}>
                 <PenNib size={16} aria-hidden />
                 Write
               </Button>

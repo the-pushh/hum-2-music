@@ -4,8 +4,8 @@ import { create } from "zustand";
 import { withClaudeParts } from "@/studio/generate/parts";
 import { useProjectStore } from "@/studio/store/project";
 import { postWrite } from "./client";
-import { writeRequestOf } from "./request";
-import { maxBars, type WriteError } from "./write";
+import { maxBars, writeRequestOf } from "./request";
+import type { WriteError } from "./write";
 
 export type WriterState =
   | { status: "idle" }
@@ -14,7 +14,7 @@ export type WriterState =
   | { status: "failed"; message: string; quiet?: boolean };
 
 /** What to tell the songwriter, and what to do next, for each way writing can fail. Parts are unchanged in every case. */
-const errorText: Record<WriteError, string> = {
+export const errorText: Record<WriteError, string> = {
   "nothing-to-write": "Nothing for Claude to write: hum a melody first, or set a part in the Style to something other than none.",
   "too-long": `Claude writes for songs up to ${maxBars} bars. Trim the melody and try again.`,
   "bad-request": "hum couldn't send this song to Claude. Reload the studio and try again.",
@@ -28,12 +28,14 @@ const errorText: Record<WriteError, string> = {
 
 type Writer = {
   state: WriterState;
-  /** The songwriter's note, kept so Another take and Rewrite ask the same thing. */
+  /** The songwriter's note, kept so Another version and Rewrite ask the same thing. */
   note: string;
   setNote: (note: string) => void;
   /** Asks Claude to write with the current note, and puts the parts on the generated tracks as one undo step. */
   write: () => Promise<void>;
   cancel: () => void;
+  /** Leaving the studio: stops a write in progress and forgets the last result. */
+  reset: () => void;
 };
 
 /**
@@ -48,6 +50,10 @@ export const useWriter = create<Writer>((set, get) => ({
     const { state } = get();
     if (state.status === "writing") state.controller.abort();
   },
+  reset: () => {
+    get().cancel();
+    set({ state: { status: "idle" }, note: "" });
+  },
   write: async () => {
     const project = useProjectStore.getState().project;
     if (!project || get().state.status === "writing") return;
@@ -56,9 +62,10 @@ export const useWriter = create<Writer>((set, get) => ({
     try {
       const result = await postWrite(writeRequestOf(project, get().note), controller.signal);
       if (!result.ok) return set({ state: { status: "failed", message: errorText[result.error] } });
-      // The arrangement as it is now: the songwriter may have edited while Claude wrote.
+      // The arrangement as it is now: the songwriter may have edited while Claude wrote, but not left for another song.
       const current = useProjectStore.getState().project;
-      if (current) useProjectStore.getState().loadProject(withClaudeParts(current, result.parts));
+      if (current?.id !== project.id) return set({ state: { status: "failed", message: "You left that song while Claude was writing, so nothing changed." } });
+      useProjectStore.getState().loadProject(withClaudeParts(current, result.parts));
       set({ state: { status: "written", summary: result.summary } });
     } catch {
       set({ state: { status: "failed", message: "Stopped. Your parts haven't changed.", quiet: true } });

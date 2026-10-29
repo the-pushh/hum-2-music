@@ -59,6 +59,11 @@ function snap(beats: number): number {
   return Math.round(beats / step) * step;
 }
 
+/** A pitched part's note moved by octaves into that part's range; drums are returned as they are. */
+export function intoPartRange(part: WrittenPart, pitch: number): number {
+  return part === "drums" ? pitch : intoRange(pitch, ranges[part]);
+}
+
 function intoRange(pitch: number, [low, high]: readonly [number, number]): number {
   let p = pitch;
   while (p > high) p -= 12;

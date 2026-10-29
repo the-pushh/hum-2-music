@@ -37,7 +37,14 @@ export function withGeneratedParts(project: Project, { keepClaudeParts = false }
   };
 
   const previous = (part: Part) => project.tracks.find((t) => t.origin?.kind === "generated" && t.origin.part === part);
-  const keep = (t: Track) => !isGenerated(t) || (keepClaudeParts && isClaudePart(t));
+  // Claude's parts are kept only while the arrangement still wants that part: not set to none, no hummed beat over drums.
+  const wanted: Record<Part, boolean> = {
+    chords: melody.length > 0 && plan.style.chords !== "none",
+    bass: melody.length > 0 && plan.style.bass !== "none",
+    drums: !hummedBeat && plan.style.drums !== "none",
+  };
+  const keep = (t: Track) =>
+    !isGenerated(t) || (keepClaudeParts && isClaudePart(t) && t.origin?.kind === "generated" && wanted[t.origin.part]);
   const kept = project.tracks.filter(keep);
   const claudeWrote = new Set(kept.flatMap((t) => (t.origin?.kind === "generated" ? [t.origin.part] : [])));
   const keptIds = new Set(kept.map((t) => t.id));

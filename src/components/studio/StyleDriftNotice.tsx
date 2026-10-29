@@ -22,9 +22,9 @@ export function StyleDriftNotice() {
   }
 
   return (
-    <div role="status" className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
+    <div className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
       <div className="flex flex-wrap items-center gap-2">
-        <p className="w-full text-sm text-ink sm:w-auto sm:flex-1">Claude&apos;s parts don&apos;t follow the new style.</p>
+        <p className="w-full text-sm text-ink sm:w-auto sm:flex-1">Claude&apos;s parts don&apos;t follow the new Style.</p>
         <Button variant="secondary" className="text-sm" disabled={state.status === "writing"} onClick={() => void write()}>
           <PenNib size={16} aria-hidden />
           Rewrite with Claude

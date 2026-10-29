@@ -2,13 +2,12 @@ import type Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { claudeErrorOf, type ClaudeCallError } from "@/studio/claude/errors";
-import type { WriteRequest } from "./request";
+import { maxBars, type WriteRequest } from "./request";
 import { maxNotesPerPart, tidyParts, type TidyParts } from "./tidy";
 
 export type { WriteRequest } from "./request";
 
-/** The longest arrangement Claude writes for. Longer ones are refused before calling it. */
-export const maxBars = 32;
+export { maxBars } from "./request";
 
 export type WriteError = ClaudeCallError | "declined" | "too-long" | "nothing-to-write" | "bad-request";
 export type WriteResult = { ok: true; parts: TidyParts; summary: string } | { ok: false; error: WriteError };

@@ -159,3 +159,17 @@ describe("Directions and Claude's parts", () => {
   });
 });
 
+describe("moving Claude's parts with the key", () => {
+  it("keeps a moved Claude bass inside the bass range", () => {
+    const generated = withGeneratedParts(project);
+    const bass = generated.tracks.find((t) => t.name === "Bass")!;
+    const claude: Project = {
+      ...generated,
+      tracks: generated.tracks.map((t) => (t.id === bass.id ? { ...t, origin: { kind: "generated", part: "bass", by: "claude" } } : t)),
+      clips: generated.clips.map((c) => (c.trackId === bass.id ? { ...c, notes: [quarter(55, 0)] } : c)),
+    };
+    // G3 up a fourth would be C4, above the bass range: it moves down an octave to C3.
+    expect(notesOn(applyDirection(claude, direction({ key: "F" })), "Bass")).toEqual([[48, 0, 1]]);
+  });
+});
+

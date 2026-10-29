@@ -3,6 +3,9 @@ import { melodyOf, planFor } from "@/studio/generate/plan";
 import type { Project } from "@/studio/types";
 import type { WrittenPart } from "./tidy";
 
+/** The longest arrangement Claude writes for. Longer ones are refused before calling it. */
+export const maxBars = 32;
+
 /** What Claude is given to write parts: the song's frame, its melody and beat as notes, and the songwriter's note. */
 export type WriteRequest = {
   plan: Plan;

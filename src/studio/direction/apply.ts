@@ -2,6 +2,7 @@ import { instrumentPreset, instruments } from "@/instruments/instruments";
 import { isClaudePart, withGeneratedParts, withStyle } from "@/studio/generate/parts";
 import { NOTE_NAMES } from "@/studio/music";
 import type { Project, Track } from "@/studio/types";
+import { intoPartRange } from "@/studio/write/tidy";
 import type { Direction } from "./schema";
 
 /** Semitones above the tonic that differ between major and minor: the 3rd, 6th and 7th, in major. */
@@ -25,7 +26,20 @@ export function applyDirection(project: Project, direction: Direction): Project 
   const scale = direction.scale ?? project.scale;
   const shift = smallestMove(NOTE_NAMES.indexOf(project.key), NOTE_NAMES.indexOf(key));
   const modeChange = scale !== project.scale && (scale === "major" || scale === "minor") ? scale : undefined;
-  if (shift || modeChange) next = { ...next, key, scale, clips: next.clips.map((clip) => (melodic(trackOf(next, clip.trackId)) ? { ...clip, notes: clip.notes?.map((n) => ({ ...n, pitch: moved(n.pitch) })) } : clip)) };
+  if (shift || modeChange) {
+    next = {
+      ...next,
+      key,
+      scale,
+      clips: next.clips.map((clip) => {
+        const track = trackOf(next, clip.trackId);
+        if (!melodic(track)) return clip;
+        // Claude's parts stay inside their part's range as they move; hums keep the octave they were sung in.
+        const part = track?.origin?.kind === "generated" ? track.origin.part : undefined;
+        return { ...clip, notes: clip.notes?.map((n) => ({ ...n, pitch: part ? intoPartRange(part, moved(n.pitch)) : moved(n.pitch) })) };
+      }),
+    };
+  }
 
   function moved(pitch: number): number {
     const p = pitch + shift;

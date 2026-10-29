@@ -28,6 +28,9 @@ const requestSchema = z.object({
 /** Writing parts can take a while: past this the studio says it took too long. One try, so the wait isn't doubled. */
 const timeoutMs = 120_000;
 
+/** Seconds a host may let this route run: Claude's time limit plus room to tidy and answer. */
+export const maxDuration = 150;
+
 /**
  * Writes chords, bass and drums for an arrangement with Claude. The key stays on the server (ANTHROPIC_API_KEY in
  * .env.local); only the plan, the melody and beat as notes, and the songwriter's note are sent.
