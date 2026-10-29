@@ -94,8 +94,11 @@ export interface Track {
     origin?: TrackOrigin;
 }
 
-/** hum: a hum's melody, or a part a Generator wrote. */
-export type TrackOrigin = { kind: 'hum'; ideaId: string } | { kind: 'generated'; part: 'chords' | 'bass' | 'drums' };
+/**
+ * hum: a hum's melody, or a generated part and who wrote it: the rule-based Generators, or Claude. Parts saved before
+ * Claude could write them have no `by` and count as rules.
+ */
+export type TrackOrigin = { kind: 'hum'; ideaId: string } | { kind: 'generated'; part: 'chords' | 'bass' | 'drums'; by?: 'rules' | 'claude' };
 
 export type TrackEffectType = 'reverb' | 'delay' | 'distortion' | 'filter' | 'compression';
 

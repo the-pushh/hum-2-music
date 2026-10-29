@@ -145,3 +145,17 @@ describe("re-voicing tracks", () => {
   });
 });
 
+describe("Directions and Claude's parts", () => {
+  it("leave Claude's parts as written, moving them with the song's key like a hum", () => {
+    const generated = withGeneratedParts(project);
+    const bass = generated.tracks.find((t) => t.name === "Bass")!;
+    const claude: Project = {
+      ...generated,
+      tracks: generated.tracks.map((t) => (t.id === bass.id ? { ...t, origin: { kind: "generated", part: "bass", by: "claude" } } : t)),
+      clips: generated.clips.map((c) => (c.trackId === bass.id ? { ...c, notes: [quarter(40, 0)] } : c)),
+    };
+    const changed = applyDirection(claude, direction({ style: { energy: "high" }, key: "D" }));
+    expect(notesOn(changed, "Bass")).toEqual([[42, 0, 1]]);
+  });
+});
+

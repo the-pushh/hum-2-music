@@ -1,5 +1,5 @@
 import { instrumentPreset, instruments } from "@/instruments/instruments";
-import { withGeneratedParts, withStyle } from "@/studio/generate/parts";
+import { isClaudePart, withGeneratedParts, withStyle } from "@/studio/generate/parts";
 import { NOTE_NAMES } from "@/studio/music";
 import type { Project, Track } from "@/studio/types";
 import type { Direction } from "./schema";
@@ -48,7 +48,9 @@ export function applyDirection(project: Project, direction: Direction): Project 
   const style = Object.fromEntries(Object.entries(direction.style ?? {}).filter(([, v]) => v !== undefined));
   if (Object.keys(style).length) return withStyle(next, style);
   // A new key or mode, or a hum moved into or out of the bass, means new chords and bass even with the Style unchanged.
-  return (shift || modeChange || revoiced) && next.tracks.some((t) => t.origin?.kind === "generated") ? withGeneratedParts(next) : next;
+  return (shift || modeChange || revoiced) && next.tracks.some((t) => t.origin?.kind === "generated")
+    ? withGeneratedParts(next, { keepClaudeParts: true })
+    : next;
 }
 
 /** From one pitch class to another the short way round: -6 to +5 semitones. */
@@ -60,7 +62,7 @@ function trackOf(project: Project, id: string): Track | undefined {
   return project.tracks.find((t) => t.id === id);
 }
 
-/** Tracks with pitched notes that a key change moves. Generated ones are rewritten instead. */
+/** Tracks with pitched notes that a key change moves: hums, hand-added tracks and Claude's parts. Rule-written ones are rewritten instead. */
 function melodic(track: Track | undefined): boolean {
-  return !!track && track.type !== "drum" && track.origin?.kind !== "generated";
+  return !!track && track.type !== "drum" && (track.origin?.kind !== "generated" || isClaudePart(track));
 }

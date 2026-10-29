@@ -176,3 +176,53 @@ describe("changing the style", () => {
     expect(styled.style).toMatchObject({ drums: "half-time", chords: "triads" });
   });
 });
+
+describe("parts Claude wrote", () => {
+  /** The arrangement with Claude's own chords: one held C major chord, marked as written by Claude. */
+  function withClaudeChords(): Project {
+    const generated = withGeneratedParts(project);
+    const chords = generated.tracks.find((t) => t.name === "Chords")!;
+    return {
+      ...generated,
+      tracks: generated.tracks.map((t) => (t.id === chords.id ? { ...t, volume: 0.3, origin: { kind: "generated", part: "chords", by: "claude" } } : t)),
+      clips: generated.clips.map((c) => (c.trackId === chords.id ? { ...c, notes: [quarter(60, 0), quarter(64, 0), quarter(67, 0)] } : c)),
+    };
+  }
+  const chordsOf = (p: Project) => notesOn(p, p.tracks.find((t) => t.name === "Chords")!);
+
+  it("marks rule-written parts as written by rules", () => {
+    const generated = withGeneratedParts(project);
+    expect(generated.tracks.filter((t) => t.origin?.kind === "generated").map((t) => t.origin)).toEqual([
+      { kind: "generated", part: "chords", by: "rules" },
+      { kind: "generated", part: "bass", by: "rules" },
+      { kind: "generated", part: "drums", by: "rules" },
+    ]);
+  });
+
+  it("keeps Claude's parts when the style changes, still rewriting the rule-written ones", () => {
+    const claude = withClaudeChords();
+    const styled = withStyle(claude, { drums: "half-time" });
+    expect(chordsOf(styled)).toEqual(chordsOf(claude));
+    expect(styled.tracks.find((t) => t.name === "Chords")?.origin).toEqual({ kind: "generated", part: "chords", by: "claude" });
+    const snares = notesOn(styled, styled.tracks.find((t) => t.name === "Drums")!).filter(([pitch]) => pitch === 38);
+    expect(snares.map(([, start]) => start)).toEqual([2, 6]);
+  });
+
+  it("replaces Claude's parts with rule-written ones on Generate parts, keeping their mixer settings", () => {
+    const claude = withClaudeChords();
+    const plain = withGeneratedParts(claude);
+    const chords = plain.tracks.find((t) => t.name === "Chords")!;
+    expect(chords.origin).toEqual({ kind: "generated", part: "chords", by: "rules" });
+    expect(chords.volume).toBe(0.3);
+    expect(chordsOf(plain)).toEqual(chordsOf(withGeneratedParts(project)));
+  });
+
+  it("treats parts from before anyone was named as written by rules", () => {
+    const old = withGeneratedParts(project);
+    const unnamed = { ...old, tracks: old.tracks.map((t) => (t.origin?.kind === "generated" ? { ...t, origin: { kind: "generated" as const, part: t.origin.part } } : t)) };
+    const styled = withStyle(unnamed, { drums: "half-time" });
+    const snares = notesOn(styled, styled.tracks.find((t) => t.name === "Drums")!).filter(([pitch]) => pitch === 38);
+    expect(snares.map(([, start]) => start)).toEqual([2, 6]);
+  });
+});
+
