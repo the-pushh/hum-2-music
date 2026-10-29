@@ -78,6 +78,6 @@
 }
 
 /* Holding a card on a phone lifts it to move it, so no link preview or copy menu pops up instead. */
-.idea-card {
+.canvas-card {
   -webkit-touch-callout: none;
 }

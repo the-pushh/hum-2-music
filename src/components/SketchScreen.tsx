@@ -12,7 +12,8 @@ import { Button } from "./Button";
 import { CaptureBar } from "./CaptureBar";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { EditableTitle } from "./EditableTitle";
-import { IdeaCanvas } from "./IdeaCanvas";
+import { FreeCanvas } from "./FreeCanvas";
+import { IdeaCard } from "./IdeaCard";
 import { ideaSummary } from "./ideaSummary";
 
 /** " and its 1 idea" / " and all 3 of its ideas" / "" for an empty sketch. */
@@ -151,8 +152,10 @@ export function SketchScreen({ id }: { id: string }) {
           </div>
         ) : (
           <div className="min-h-0 flex-1">
-            <IdeaCanvas
-              ideas={ideas}
+            <FreeCanvas
+              items={ideas}
+              label={(idea) => ideaSummary(idea).label}
+              render={(idea) => <IdeaCard data={idea} />}
               onPlace={(ideaId, place) =>
                 attempt(() => sketchStore().placeIdea(ideaId, place), "That card's new spot couldn't be saved. Try moving it again.")
               }

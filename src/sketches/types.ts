@@ -2,11 +2,16 @@ import type { InstrumentId } from "@/instruments/instruments";
 import type { Take, Transcription } from "@/melody/types";
 import type { Project } from "@/studio/types";
 
+/** Where a card sits on a canvas (a Sketch on the home page, an Idea on its Sketch's page): its top left corner, in canvas pixels. */
+export type Place = { x: number; y: number };
+
 export type Sketch = {
   id: string;
   title: string;
   createdAt: number;
   updatedAt: number;
+  /** Missing until the sketch's card is first laid out on the home canvas. */
+  place?: Place;
 };
 
 export type NoteInput = { kind: "note"; text: string };
@@ -55,9 +60,6 @@ export type ColorInput = { kind: "color"; hex: string };
 
 /** Everything a capture can add to a sketch. */
 export type IdeaInput = NoteInput | VoiceInput | LyricsInput | ImageInput | LinkInput | ColorInput;
-
-/** Where an Idea's card sits on the sketch's canvas: its top left corner, in canvas pixels. */
-export type Place = { x: number; y: number };
 
 export type Idea = IdeaInput & {
   id: string;

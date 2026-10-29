@@ -13,10 +13,8 @@ import {
 import { FrameCorners } from "@phosphor-icons/react";
 import { useEffect, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import { TransformComponent, TransformWrapper, useTransformEffect, type ReactZoomPanPinchRef } from "react-zoom-pan-pinch";
-import type { Idea, Place } from "@/sketches/types";
+import type { Place } from "@/sketches/types";
 import { CARD_WIDTH, columnLayout, fitView, freeSpot, type Rect, type Size } from "@/ui/canvasLayout";
-import { IdeaCard } from "./IdeaCard";
-import { ideaSummary } from "./ideaSummary";
 
 /** Arrow keys move a focused card this far; with Shift, four times as far. */
 const KEY_STEP = 24;
@@ -53,8 +51,15 @@ class CardTouchSensor extends TouchSensor {
 
 const reducedMotion = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-type Props = {
-  ideas: Idea[];
+/** Anything shown as a card on a canvas: an Idea, or a Sketch on the home page. */
+type Item = { id: string; place?: Place };
+
+type Props<T extends Item> = {
+  items: T[];
+  /** What a screen reader calls the card. */
+  label: (item: T) => string;
+  /** The card itself. */
+  render: (item: T) => ReactNode;
   /** Saves a card the songwriter moved. */
   onPlace: (id: string, place: Place) => Promise<void>;
   /** Saves the places hum picked for cards that had none. */
@@ -62,11 +67,11 @@ type Props = {
 };
 
 /**
- * The sketch's ideas on a freeform canvas. Drag a card to put it anywhere; drag the background, scroll or swipe to pan;
- * pinch or Ctrl and scroll to zoom. Cards with no place yet are laid out by hum: in columns for a sketch that has never
- * been laid out, otherwise in a free spot in view.
+ * Cards on a freeform canvas. Drag a card to put it anywhere; drag the background, scroll or swipe to pan; pinch or Ctrl
+ * and scroll to zoom. Cards with no place yet are laid out by hum: in columns when nothing has been laid out yet,
+ * otherwise in a free spot in view.
  */
-export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
+export function FreeCanvas<T extends Item>({ items, label, render, onPlace, onLayOut }: Props<T>) {
   const zoom = useRef<ReactZoomPanPinchRef>(null);
   const [sizes, setSizes] = useState<Record<string, Size>>({});
   // Places shown before the store hands them back, so a card never snaps back for a moment.
@@ -79,10 +84,10 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
   // Where each card was last put, ahead of the render that shows it, so held arrow keys add up.
   const lastPut = useRef<Record<string, Place>>({});
 
-  const placeOf = (idea: Idea): Place | undefined => moved[idea.id] ?? idea.place ?? auto[idea.id];
-  const rectOf = (idea: Idea): Rect | null => {
-    const place = placeOf(idea);
-    return place ? { ...place, w: CARD_WIDTH, h: sizes[idea.id]?.h ?? GUESS_HEIGHT } : null;
+  const placeOf = (item: T): Place | undefined => moved[item.id] ?? item.place ?? auto[item.id];
+  const rectOf = (item: T): Rect | null => {
+    const place = placeOf(item);
+    return place ? { ...place, w: CARD_WIDTH, h: sizes[item.id]?.h ?? GUESS_HEIGHT } : null;
   };
 
   function viewport(): Size {
@@ -91,17 +96,17 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
   }
 
   function showAll(animate: boolean) {
-    const rects = ideas.map(rectOf).filter((r): r is Rect => !!r);
+    const rects = items.map(rectOf).filter((r): r is Rect => !!r);
     const { x, y, scale } = fitView(rects, viewport(), { minScale: MIN_SCALE });
     void zoom.current?.setTransform(x, y, scale, animate && !reducedMotion() ? 300 : 0, "easeOut");
   }
 
   // Lay out cards that have no place yet, once they've been measured.
-  const unplaced = ideas.filter((i) => !placeOf(i));
+  const unplaced = items.filter((i) => !placeOf(i));
   const measured = unplaced.every((i) => sizes[i.id]);
   useEffect(() => {
     if (unplaced.length === 0 || !measured || !zoom.current) return;
-    const placed = ideas.map(rectOf).filter((r): r is Rect => !!r);
+    const placed = items.map(rectOf).filter((r): r is Rect => !!r);
     let places: Record<string, Place>;
     if (placed.length === 0) {
       const columns = Math.min(4, Math.max(2, Math.floor(viewport().w / (CARD_WIDTH + 24))));
@@ -112,10 +117,10 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
       const { w, h } = viewport();
       const middle = { x: (w / 2 - positionX) / scale, y: (h / 2 - positionY) / scale };
       places = {};
-      for (const idea of unplaced) {
-        const size = { w: CARD_WIDTH, h: sizes[idea.id].h };
-        places[idea.id] = freeSpot(placed, size, middle);
-        placed.push({ ...places[idea.id], ...size });
+      for (const item of unplaced) {
+        const size = { w: CARD_WIDTH, h: sizes[item.id].h };
+        places[item.id] = freeSpot(placed, size, middle);
+        placed.push({ ...places[item.id], ...size });
       }
     }
     setAuto((a) => ({ ...a, ...places }));
@@ -123,7 +128,7 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
   }, [unplaced.map((i) => i.id).join(), measured]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show every card the first time they're all laid out and measured.
-  const ready = unplaced.length === 0 && ideas.every((i) => sizes[i.id]);
+  const ready = unplaced.length === 0 && items.every((i) => sizes[i.id]);
   useEffect(() => {
     if (!ready || fitted.current) return;
     fitted.current = true;
@@ -150,11 +155,11 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
   };
 
   function onDragEnd({ active, delta }: DragEndEvent) {
-    const idea = ideas.find((i) => i.id === active.id);
-    const from = idea && placeOf(idea);
+    const item = items.find((i) => i.id === active.id);
+    const from = item && placeOf(item);
     if (!from) return;
-    place(idea.id, { x: from.x + delta.x, y: from.y + delta.y });
-    // The press that ended the drag mustn't also open a lyrics card or a link.
+    place(item.id, { x: from.x + delta.x, y: from.y + delta.y });
+    // The press that ended the drag mustn't also open the card (a sketch, lyrics) or a link.
     justDragged.current = true;
     setTimeout(() => (justDragged.current = false));
   }
@@ -184,7 +189,7 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
         smooth
         wheel={{ wheelDisabled: true, step: 0.003 }}
         trackPadPanning={{ disabled: false, velocityDisabled: true }}
-        panning={{ excluded: ["idea-card"], velocityDisabled: true }}
+        panning={{ excluded: ["canvas-card"], velocityDisabled: true }}
         doubleClick={{ disabled: true }}
       >
         <CanvasDots />
@@ -201,21 +206,22 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
           }}
         >
           <DndContext sensors={sensors} modifiers={[toCanvas]} autoScroll={false} onDragEnd={onDragEnd}>
-            {ideas.map((idea) => {
-              const at = placeOf(idea);
-              const z = front.indexOf(idea.id) + 1;
+            {items.map((item) => {
+              const at = placeOf(item);
+              const z = front.indexOf(item.id) + 1;
               return (
                 <CanvasCard
-                  key={idea.id}
-                  idea={idea}
+                  key={item.id}
+                  id={item.id}
+                  label={label(item)}
                   at={at}
                   z={z}
                   onSize={(size) =>
-                    setSizes((s) => (s[idea.id]?.w === size.w && s[idea.id]?.h === size.h ? s : { ...s, [idea.id]: size }))
+                    setSizes((s) => (s[item.id]?.w === size.w && s[item.id]?.h === size.h ? s : { ...s, [item.id]: size }))
                   }
                   onNudge={(dx, dy) => {
-                    const from = lastPut.current[idea.id] ?? at;
-                    if (from) place(idea.id, { x: from.x + dx, y: from.y + dy });
+                    const from = lastPut.current[item.id] ?? at;
+                    if (from) place(item.id, { x: from.x + dx, y: from.y + dy });
                   }}
                   onFocus={revealCard}
                   onClickCapture={(e) => {
@@ -224,7 +230,7 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
                     e.stopPropagation();
                   }}
                 >
-                  <IdeaCard data={idea} />
+                  {render(item)}
                 </CanvasCard>
               );
             })}
@@ -245,7 +251,8 @@ export function IdeaCanvas({ ideas, onPlace, onLayOut }: Props) {
 }
 
 type CardProps = {
-  idea: Idea;
+  id: string;
+  label: string;
   at: Place | undefined;
   z: number;
   children: ReactNode;
@@ -255,9 +262,9 @@ type CardProps = {
   onClickCapture: (e: React.MouseEvent) => void;
 };
 
-/** One idea on the canvas: moved by dragging it, or with the arrow keys while it has focus. */
-function CanvasCard({ idea, at, z, children, onSize, onNudge, onFocus, onClickCapture }: CardProps) {
-  const { setNodeRef, listeners, transform, isDragging } = useDraggable({ id: idea.id });
+/** One card on the canvas: moved by dragging it, or with the arrow keys while it has focus. */
+function CanvasCard({ id, label, at, z, children, onSize, onNudge, onFocus, onClickCapture }: CardProps) {
+  const { setNodeRef, listeners, transform, isDragging } = useDraggable({ id });
   const box = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -297,11 +304,14 @@ function CanvasCard({ idea, at, z, children, onSize, onNudge, onFocus, onClickCa
       tabIndex={0}
       role="group"
       aria-roledescription="movable card"
-      aria-label={`${ideaSummary(idea).label}. Arrow keys move it.`}
+      aria-label={`${label}. Arrow keys move it.`}
       onKeyDown={onKeyDown}
       onFocus={(e) => e.target === e.currentTarget && onFocus(e.currentTarget)}
       onClickCapture={onClickCapture}
-      className={`idea-card absolute cursor-grab touch-none rounded-2xl select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
+      // Links and pictures would start the browser's own drag and swallow the move; only parts made to be dragged out
+      // of the page (the MIDI and Audio chips) keep it.
+      onDragStart={(e) => e.target instanceof Element && !e.target.closest('[draggable="true"]') && e.preventDefault()}
+      className={`canvas-card absolute cursor-grab touch-none rounded-2xl select-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink ${
         at ? "" : "invisible"
       } ${isDragging ? "cursor-grabbing opacity-90 ring-2 ring-ink" : ""}`}
       style={{

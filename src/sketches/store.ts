@@ -44,6 +44,23 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
+  /** Puts a sketch's card somewhere on the home canvas. Not an edit of the sketch, so it keeps its place in the list. */
+  async function placeSketch(id: string, { x, y }: Place): Promise<void> {
+    const changed = await db.sketches.update(id, { place: { x: Math.round(x), y: Math.round(y) } });
+    if (!changed && !(await getSketch(id))) throw new Error(`Sketch ${id} not found`);
+  }
+
+  /** Gives places to sketches that have none yet, by sketch id: the home canvas's automatic layout. */
+  async function layOutSketches(places: Record<string, Place>): Promise<void> {
+    await db.transaction("rw", db.sketches, async () => {
+      const sketches = await db.sketches.bulkGet(Object.keys(places));
+      const unplaced = sketches.filter((s): s is Sketch => !!s && !s.place);
+      await db.sketches.bulkUpdate(
+        unplaced.map(({ id }) => ({ key: id, changes: { place: { x: Math.round(places[id].x), y: Math.round(places[id].y) } } })),
+      );
+    });
+  }
+
   function listSketches(): Promise<Sketch[]> {
     return db.sketches.orderBy("updatedAt").reverse().toArray();
   }
@@ -175,7 +192,7 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, placeIdea, layOutIdeas, removeIdea, capture, getArrangement, saveArrangement };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, placeSketch, layOutSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, placeIdea, layOutIdeas, removeIdea, capture, getArrangement, saveArrangement };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

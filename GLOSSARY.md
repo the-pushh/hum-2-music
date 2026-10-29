@@ -6,7 +6,7 @@ The words hum's code and issues use, and what they mean here.
 
 - **Sketch**: one song idea in progress: a title and the Ideas collected for it. Captured with no Sketch open, an Idea starts a new one.
 - **Idea**: one thing captured into a Sketch: lyrics, or a voice take (a hummed melody or a beat). Sketches from before M4 may also hold images, links, colors and notes, which still show but can no longer be added. Ideas keep the order the songwriter gives them.
-- **Canvas**: the sketch page, where each Idea is a card the songwriter can put anywhere. A card's **Place** is where it sits; Ideas with none yet are laid out by hum, in columns at first and later in a free spot in view.
+- **Canvas**: a page of cards the songwriter can put anywhere: the home page holds the Sketches (clicking one opens it), a Sketch's page holds its Ideas. A card's **Place** is where it sits; cards with none yet are laid out by hum, in columns at first and later in a free spot in view.
 - **Take**: how a voice Idea was recorded: its Take mode, its tempo, whether a click played, and the key chosen beforehand, if any. Takes without a click are measured at the reference tempo, 90 BPM.
 - **Take mode**: what a take is of: a **melody** (hummed or sung) or a **beat**. Takes from before M4 are melodies.
 - **Beat**: a take of a vocalized drum beat (beatbox). hum hears it as kick, snare and hi-hat hits, not pitches.

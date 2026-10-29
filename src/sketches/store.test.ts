@@ -363,6 +363,48 @@ describe("sketch store", () => {
     });
   });
 
+  describe("sketch places on the home canvas", () => {
+    it("leaves a new sketch with no place", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      expect((await store.getSketch(sketch.id))?.place).toBeUndefined();
+    });
+
+    it("places a sketch, rounded to whole pixels, without moving it in the list", async () => {
+      const store = freshStore();
+      const older = await store.createSketch("Older");
+      await store.createSketch("Newer");
+      await store.placeSketch(older.id, { x: 10.4, y: -3.6 });
+      const sketches = await store.listSketches();
+      expect(sketches.map((s) => s.title)).toEqual(["Newer", "Older"]);
+      expect(sketches[1]).toMatchObject({ place: { x: 10, y: -4 }, updatedAt: older.updatedAt });
+    });
+
+    it("rejects placing a sketch that isn't there", async () => {
+      const store = freshStore();
+      await expect(store.placeSketch("missing", { x: 0, y: 0 })).rejects.toThrow();
+    });
+
+    it("lays out sketches that have no place yet, leaving placed ones alone", async () => {
+      const store = freshStore();
+      const a = await store.createSketch("A");
+      const b = await store.createSketch("B");
+      await store.placeSketch(a.id, { x: 5, y: 5 });
+      await store.layOutSketches({ [a.id]: { x: 999, y: 999 }, [b.id]: { x: 264.3, y: 0 }, missing: { x: 1, y: 1 } });
+      expect((await store.getSketch(a.id))?.place).toEqual({ x: 5, y: 5 });
+      expect((await store.getSketch(b.id))?.place).toEqual({ x: 264, y: 0 });
+      expect(await store.listSketches()).toHaveLength(2);
+    });
+
+    it("keeps a sketch's place when it's renamed", async () => {
+      const store = freshStore();
+      const sketch = await store.createSketch("Song");
+      await store.placeSketch(sketch.id, { x: 40, y: 80 });
+      await store.renameSketch(sketch.id, "New name");
+      expect((await store.getSketch(sketch.id))?.place).toEqual({ x: 40, y: 80 });
+    });
+  });
+
   it("renames a sketch, trimming spaces and moving it to the top", async () => {
     const store = freshStore();
     const sketch = await store.createSketch("Sketch, 27 Oct");
