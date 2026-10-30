@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ArrowClockwise, CaretDown, MusicNotes } from "@phosphor-icons/react";
 import { playMelody } from "@/audio/takePlayer";
 import { defaultInstrument, instruments } from "@/instruments/instruments";
-import { isTranscribing, takeOf, transcribeIdea } from "@/melody/client";
+import { isTranscribing, takeOf, transcribeIdea, useTranscribeProgress, type TranscribeProgress } from "@/melody/client";
 import { keyName } from "@/melody/keyName";
 import type { VoiceIdea } from "@/sketches/types";
 import { Button } from "./Button";
@@ -48,6 +48,7 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
   const t = idea.transcription;
   const [changingInstrument, setChangingInstrument] = useState(false);
   const [dismissed, dismiss] = useDismissed(idea.id);
+  const progress = useTranscribeProgress(idea.id);
   const instrument = idea.instrument ?? defaultInstrument;
 
   // A transcription left pending by a closed tab or reload never finishes on its own: start it again.
@@ -55,21 +56,15 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
     if (t?.status === "pending" && !isTranscribing(idea.id)) void transcribeIdea(idea);
   }, [t?.status, idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // In flight shows as hearing straight away, before the pending status reaches the store.
+  if (progress || t?.status === "pending") return <Hearing progress={progress} />;
+
   if (!t) {
     return (
       <Button variant="secondary" className="self-start text-sm" onClick={() => void transcribeIdea(idea)}>
         <MusicNotes size={16} aria-hidden />
         Transcribe
       </Button>
-    );
-  }
-
-  if (t.status === "pending") {
-    return (
-      <div className="flex flex-col gap-2" aria-live="polite">
-        <div className="h-12 w-full animate-pulse rounded-sm bg-canvas/10" aria-hidden />
-        <span className="text-xs opacity-70">Hearing the notes</span>
-      </div>
     );
   }
 
@@ -137,6 +132,40 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
         <CleanupControls idea={idea} />
       </div>
       <TakeExport idea={idea} />
+    </div>
+  );
+}
+
+/**
+ * The space the notes will fill, filling left to right as hum hears the take. Pulses while the take and the model get
+ * ready, which can take a few seconds the first time.
+ */
+function Hearing({ progress }: { progress?: TranscribeProgress }) {
+  const hearing = progress?.stage === "hearing";
+  const heard = hearing ? progress.heard : 0;
+  return (
+    <div className="flex flex-col gap-2">
+      <div
+        role="progressbar"
+        aria-label="Hearing the notes"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={hearing ? Math.round(heard * 100) : undefined}
+        className={`relative h-12 w-full overflow-hidden rounded-sm bg-canvas/10 ${hearing ? "" : "animate-pulse"}`}
+      >
+        <div
+          className="absolute inset-0 origin-left bg-canvas/20 transition-transform duration-500 ease-soft"
+          style={{ transform: `scaleX(${heard})` }}
+        />
+      </div>
+      <span className="flex justify-between gap-2 text-xs opacity-70">
+        <span aria-live="polite">{hearing ? "Hearing the notes" : "Getting ready to listen"}</span>
+        {hearing && (
+          <span className="tabular-nums" aria-hidden>
+            {Math.round(heard * 100)}%
+          </span>
+        )}
+      </span>
     </div>
   );
 }

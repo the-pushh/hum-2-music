@@ -96,6 +96,67 @@ describe("cleanup", () => {
     expect(cleanup(hum, auto, free).notes).toHaveLength(4);
   });
 
+  describe("smoothing", () => {
+    // At 90 BPM, 0.1 beats is 67 ms and 0.15 beats is 100 ms.
+    const noSnap = { ...auto, snap: false };
+
+    it("folds a scoop up into the note it lands on", () => {
+      const hum: Note[] = [
+        { pitch: 62, start: 0, duration: 0.15, velocity: 0.5 }, // sliding up from below
+        { pitch: 64, start: 0.15, duration: 1.2, velocity: 0.7 },
+      ];
+      const { notes } = cleanup(hum, noSnap, free);
+      expect(notes.map(({ pitch, start, duration }) => ({ pitch, start, duration }))).toEqual([
+        { pitch: 64, start: 0, duration: expect.closeTo(1.35, 9) },
+      ]);
+    });
+
+    it("folds a fall-off into the note it trails from", () => {
+      const hum: Note[] = [
+        { pitch: 67, start: 0, duration: 1.5, velocity: 0.7 },
+        { pitch: 65, start: 1.52, duration: 0.15, velocity: 0.4 },
+      ];
+      const { notes } = cleanup(hum, noSnap, free);
+      expect(pitches(notes)).toEqual([67]);
+      expect(notes[0].duration).toBeCloseTo(1.67, 9);
+    });
+
+    it("hears a held note with a vibrato wobble as one note", () => {
+      const hum: Note[] = [
+        { pitch: 64, start: 0, duration: 0.8, velocity: 0.7 },
+        { pitch: 65, start: 0.8, duration: 0.12, velocity: 0.6 },
+        { pitch: 64, start: 0.92, duration: 0.1, velocity: 0.6 },
+        { pitch: 63, start: 1.02, duration: 0.13, velocity: 0.6 },
+        { pitch: 64, start: 1.15, duration: 0.9, velocity: 0.7 },
+      ];
+      const { notes } = cleanup(hum, noSnap, free);
+      expect(notes.map(({ pitch, duration }) => ({ pitch, duration }))).toEqual([{ pitch: 64, duration: expect.closeTo(2.05, 9) }]);
+    });
+
+    it("keeps a quick note that leaps away", () => {
+      const hum: Note[] = [
+        { pitch: 62, start: 0, duration: 1, velocity: 0.7 },
+        { pitch: 69, start: 1, duration: 0.15, velocity: 0.7 },
+        { pitch: 62, start: 1.15, duration: 1, velocity: 0.7 },
+      ];
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([62, 69, 62]);
+    });
+
+    it("keeps a quick stepwise run", () => {
+      const hum: Note[] = [62, 64, 65, 67, 69].map((pitch, i) => ({ pitch, start: i * 0.15, duration: 0.15, velocity: 0.7 }));
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([62, 64, 65, 67, 69]);
+    });
+
+    it("keeps quick notes a beat apart from their neighbours", () => {
+      const hum: Note[] = [
+        { pitch: 60, start: 0, duration: 0.5, velocity: 0.7 },
+        { pitch: 62, start: 0.7, duration: 0.15, velocity: 0.7 },
+        { pitch: 64, start: 1, duration: 0.5, velocity: 0.7 },
+      ];
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([60, 62, 64]);
+    });
+  });
+
   it("reduces overlapping notes to one line, keeping the stronger note", () => {
     const hum: Note[] = [
       { pitch: 60, start: 0, duration: 1, velocity: 0.7 },

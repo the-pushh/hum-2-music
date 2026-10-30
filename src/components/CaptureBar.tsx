@@ -4,7 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GridFour, MusicNotes, TextAa } from "@phosphor-icons/react";
 import { hearBeatIdea } from "@/beat/client";
-import { isBeat, transcribeIdea } from "@/melody/client";
+import { isBeat, transcribeIdea, useTranscribeProgress } from "@/melody/client";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
 import { beatBg, ideaBg } from "@/ui/ideaColors";
@@ -54,6 +54,10 @@ export function CaptureBar({ openSketchId }: Props) {
   const router = useRouter();
   const [section, setSection] = useSection();
   const [recording, setRecording] = useState(false);
+  // Carries on across the jump to a new sketch's page, so the songwriter sees their hum being heard where they tapped.
+  const hearing = useTranscribeProgress();
+  const hearingNote =
+    hearing && `Turning your hum into notes${hearing.stage === "hearing" ? `, ${Math.round(hearing.heard * 100)}%` : ""}`;
 
   async function save(input: IdeaInput, stillMounted = true) {
     const { sketch, idea } = await captureIdea(openSketchId, input);
@@ -83,7 +87,7 @@ export function CaptureBar({ openSketchId }: Props) {
       {section === "lyrics" ? (
         <LyricsNote openSketchId={openSketchId} />
       ) : (
-        <Recorder mode={section} onSave={save} onBusyChange={setRecording} />
+        <Recorder mode={section} onSave={save} onBusyChange={setRecording} idleNote={hearingNote || undefined} />
       )}
     </section>
   );

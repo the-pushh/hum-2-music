@@ -7,6 +7,11 @@ const shortestNoteSec = 0.08;
  * Re-sung notes either leave a longer gap or, when the transcriber heard a new onset, start exactly where the last ended.
  */
 const splitGapSec = { min: 0.005, max: 0.03 };
+/**
+ * The voice scoops into notes, falls off them and wobbles around held ones, and the transcriber hears each slide as a
+ * short note of its own. A note this brief, touching a note this close in pitch, is part of that note.
+ */
+const slide = { longestSec: 0.12, semitones: 2, gapSec: 0.05 };
 /** Out-of-key notes held at least this long were meant: a blue note, a passing chromatic note. */
 const heldNoteSec = 0.5;
 /** Where the melody should sit for piano: around the octave above middle C. */
@@ -27,12 +32,14 @@ const minorSteps = [0, 2, 3, 5, 7, 8, 10, 11];
 export function cleanup(raw: Note[], settings: CleanupSettings, take: Take): { notes: Note[]; key: Key } {
   const beatsPerSec = take.bpm / 60;
   let notes: Sung[] = raw
-    .filter((n) => n.duration >= shortestNoteSec * beatsPerSec)
     .map((n) => ({ ...n, pitch: Math.round(n.pitch), sung: n.pitch }))
     .sort((a, b) => a.start - b.start || a.pitch - b.pitch);
 
   notes = joinSplitNotes(notes, splitGapSec.min * beatsPerSec, splitGapSec.max * beatsPerSec);
   notes = oneAtATime(notes);
+  // Slides are folded in before blips are dropped, so a scoop lengthens its note rather than leaving a hole.
+  notes = foldSlides(notes, slide.longestSec * beatsPerSec, slide.gapSec * beatsPerSec);
+  notes = notes.filter((n) => n.duration >= shortestNoteSec * beatsPerSec);
 
   const key = settings.key === "auto" ? detectKey(notes) : settings.key;
   if (settings.snap) notes = snapToKey(notes, key, heldNoteSec * beatsPerSec);
@@ -83,6 +90,41 @@ function oneAtATime<N extends Note>(notes: N[]): N[] {
     }
   }
   return line;
+}
+
+/**
+ * Folds each slide into the held note it belongs to, briefest first, so a run of wobbles folds in from the notes around it.
+ * Slides only fold into notes long enough to be sung notes, so a quick run of short notes stays as it is.
+ * A wobble between two of the same note joins them into one held note; otherwise the slide goes to the longer neighbour.
+ */
+function foldSlides<N extends Note>(notes: N[], longest: number, maxGap: number): N[] {
+  const line = [...notes];
+  const belongsTo = (n: N, other: N | undefined, gap: number) =>
+    other !== undefined && other.duration >= longest && gap <= maxGap && Math.abs(other.pitch - n.pitch) <= slide.semitones;
+  for (;;) {
+    let best = -1;
+    for (let i = 0; i < line.length; i++) {
+      const n = line[i];
+      if (n.duration >= longest || (best >= 0 && n.duration >= line[best].duration)) continue;
+      const prev = line[i - 1];
+      const next = line[i + 1];
+      if (belongsTo(n, prev, prev ? n.start - end(prev) : 0) || belongsTo(n, next, next ? next.start - end(n) : 0)) best = i;
+    }
+    if (best < 0) return line;
+
+    const n = line[best];
+    const prev = line[best - 1];
+    const next = line[best + 1];
+    const toPrev = prev !== undefined && belongsTo(n, prev, n.start - end(prev));
+    const toNext = next !== undefined && belongsTo(n, next, next.start - end(n));
+    if (toPrev && toNext && prev.pitch === next.pitch) {
+      line.splice(best - 1, 3, { ...prev, duration: end(next) - prev.start, velocity: Math.max(prev.velocity, next.velocity) });
+    } else if (toPrev && (!toNext || prev.duration >= next.duration)) {
+      line.splice(best - 1, 2, { ...prev, duration: end(n) - prev.start });
+    } else {
+      line.splice(best, 2, { ...next, start: n.start, duration: end(next) - n.start });
+    }
+  }
 }
 
 function strength(n: Note) {

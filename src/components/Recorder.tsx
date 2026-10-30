@@ -25,6 +25,8 @@ type Props = {
   onSave: (voice: VoiceInput, stillMounted: boolean) => Promise<void>;
   /** Told when a take starts and when it's done, so the mode can't change mid-take. */
   onBusyChange?: (busy: boolean) => void;
+  /** Said under the button instead of the idle prompt, such as while the last take is being turned into notes. */
+  idleNote?: string;
 };
 
 const statusText: Record<TakeMode, Record<Exclude<Status, "counting">, string>> = {
@@ -42,7 +44,7 @@ const statusText: Record<TakeMode, Record<Exclude<Status, "counting">, string>> 
   },
 };
 
-export function Recorder({ mode, onSave, onBusyChange }: Props) {
+export function Recorder({ mode, onSave, onBusyChange, idleNote }: Props) {
   const waveRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WaveSurfer | null>(null);
   const recordRef = useRef<RecordPlugin | null>(null);
@@ -231,7 +233,14 @@ export function Recorder({ mode, onSave, onBusyChange }: Props) {
   }
 
   const live = status === "recording" || status === "starting" || status === "counting";
-  const label = status === "counting" ? (countBeat ? `Counting in, ${countBeat}` : "Counting in") : statusText[mode][status];
+  const label =
+    status === "counting"
+      ? countBeat
+        ? `Counting in, ${countBeat}`
+        : "Counting in"
+      : status === "idle" && idleNote
+        ? idleNote
+        : statusText[mode][status];
 
   return (
     <div className="flex w-full flex-col items-center gap-3">
