@@ -18,19 +18,22 @@ const SEEK_STEP_SEC = 5;
 
 /** A recorded take: a hummed melody (lime) or a vocalized beat (cyan), with its waveform and what hum heard in it. */
 export function VoiceCard({ idea }: { idea: VoiceIdea }) {
+  // A take saved a moment ago gets its waveform shortly: show a skeleton till then rather than decoding it twice.
+  // The card starts afresh when the waveform arrives, so the player that was waiting can't fail the one that plays.
+  const waiting = !idea.peaks.length && isFinishing(idea.id);
+  return <TakeCard key={waiting ? "waiting" : "ready"} idea={idea} waiting={waiting} />;
+}
+
+function TakeCard({ idea, waiting }: { idea: VoiceIdea; waiting: boolean }) {
   const beat = isBeat(idea);
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
-  // A voice Idea's audio never changes for a given id, and its peaks only once: when a just-saved take's waveform
-  // arrives. So everything below is keyed on idea.id and whether there are peaks. Live queries hand back fresh objects
-  // on every read, and wavesurfer rebuilds itself whenever an option changes identity, so depending on the objects
-  // themselves loops forever.
+  // A take's audio and peaks never change while this card shows it, so everything below is keyed on idea.id.
+  // Live queries hand back fresh objects on every read, and wavesurfer rebuilds itself whenever an option
+  // changes identity, so depending on the objects themselves loops forever.
   const { blob, peaks: rawPeaks, durationSec } = idea;
-  const hasPeaks = rawPeaks.length > 0;
-  const peaks = useMemo(() => (hasPeaks ? [rawPeaks] : undefined), [idea.id, hasPeaks]); // eslint-disable-line react-hooks/exhaustive-deps
-  // A take saved a moment ago gets its waveform shortly: show a skeleton till then rather than decoding it twice.
-  const waiting = !hasPeaks && isFinishing(idea.id);
+  const peaks = useMemo(() => (rawPeaks.length ? [rawPeaks] : undefined), [idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
   // Dark on the card's lime: the unplayed part faint, the played part solid.
   const colors = useMemo(() => ({ wave: `${tokenColor("canvas")}59`, progress: tokenColor("canvas"), cursor: tokenColor("canvas") }), []);
 
@@ -48,7 +51,7 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
   // and a memoised URL gets revoked by the first cleanup while the memo keeps handing it back.
   useEffect(() => {
     if (!waiting) wavesurfer?.loadBlob(blob, peaks, durationSec).catch(() => setFailed(true));
-  }, [wavesurfer, idea.id, waiting]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [wavesurfer, idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One hum at a time: playing this card pauses whichever hum was already playing.
   useEffect(() => {
