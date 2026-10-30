@@ -30,9 +30,9 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
       .modify((s) => void (s.title = s.title.replace(/^Sketch/, "Idea"))),
   );
 
-  async function createSketch(title: string): Promise<Sketch> {
+  async function createSketch(title: string, id: string = crypto.randomUUID()): Promise<Sketch> {
     const t = now();
-    const sketch: Sketch = { id: crypto.randomUUID(), title, createdAt: t, updatedAt: t };
+    const sketch: Sketch = { id, title, createdAt: t, updatedAt: t };
     await db.sketches.add(sketch);
     return sketch;
   }
@@ -105,6 +105,20 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
       if (!idea) throw new Error(`Idea ${id} not found`);
       if (idea.kind !== "voice") throw new Error(`Idea ${id} is ${idea.kind}, not voice`);
       const voice: VoiceIdea = { ...idea, transcription };
+      await db.ideas.put(voice);
+    });
+  }
+
+  /**
+   * Sets a take's real length and waveform, worked out after it was saved so its page could open straight away.
+   * Not an edit, so the sketch keeps its place in the list.
+   */
+  async function setWaveform(id: string, waveform: Pick<VoiceIdea, "durationSec" | "peaks">): Promise<void> {
+    await db.transaction("rw", db.ideas, async () => {
+      const idea = await db.ideas.get(id);
+      if (!idea) throw new Error(`Idea ${id} not found`);
+      if (idea.kind !== "voice") throw new Error(`Idea ${id} is ${idea.kind}, not voice`);
+      const voice: VoiceIdea = { ...idea, ...waveform };
       await db.ideas.put(voice);
     });
   }
@@ -192,17 +206,20 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
     });
   }
 
-  /** Adds an idea to the open sketch, or starts a new one when nothing is open. All or nothing. */
-  function capture(openSketchId: string | null, input: IdeaInput): Promise<{ sketch: Sketch; idea: Idea }> {
+  /**
+   * Adds an idea to the open sketch, or starts a new one when nothing is open. All or nothing. A new sketch can be given
+   * its id ahead of time, so its page can load while the idea is still being recorded.
+   */
+  function capture(openSketchId: string | null, input: IdeaInput, newSketchId?: string): Promise<{ sketch: Sketch; idea: Idea }> {
     return db.transaction("rw", db.sketches, db.ideas, async () => {
-      const sketchId = openSketchId ?? (await createSketch(`Idea, ${dayMonth.format(now())}`)).id;
+      const sketchId = openSketchId ?? (await createSketch(`Idea, ${dayMonth.format(now())}`, newSketchId)).id;
       if (!(await getSketch(sketchId))) throw new Error(`Sketch ${sketchId} not found`);
       const idea = await addIdea(sketchId, input);
       return { sketch: (await getSketch(sketchId))!, idea };
     });
   }
 
-  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setInstrument, moveIdea, removeIdea, capture, getArrangement, saveArrangement, getLayout, placePiece, layOutPieces, resetLayout };
+  return { createSketch, getSketch, renameSketch, deleteSketch, listSketches, addIdea, getIdea, listIdeas, updateIdea, setTranscription, setWaveform, setInstrument, moveIdea, removeIdea, capture, getArrangement, saveArrangement, getLayout, placePiece, layOutPieces, resetLayout };
 }
 
 export type SketchStore = ReturnType<typeof openSketchStore>;

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { useWavesurfer } from "@wavesurfer/react";
 import { Pause, Play } from "@phosphor-icons/react";
 import { startedPlaying, stoppedPlaying } from "@/audio/exclusivePlayback";
+import { isFinishing } from "@/audio/finishTake";
 import { formatDuration } from "@/audio/formatDuration";
 import { waveformBars } from "@/audio/waveformStyle";
 import { tokenColor } from "@/ui/tokenColor";
@@ -21,11 +22,15 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [failed, setFailed] = useState(false);
 
-  // A voice Idea's audio and peaks never change for a given id, so everything below is keyed on idea.id.
-  // Live queries hand back fresh objects on every read, and wavesurfer rebuilds itself whenever an option
-  // changes identity, so depending on the objects themselves loops forever.
+  // A voice Idea's audio never changes for a given id, and its peaks only once: when a just-saved take's waveform
+  // arrives. So everything below is keyed on idea.id and whether there are peaks. Live queries hand back fresh objects
+  // on every read, and wavesurfer rebuilds itself whenever an option changes identity, so depending on the objects
+  // themselves loops forever.
   const { blob, peaks: rawPeaks, durationSec } = idea;
-  const peaks = useMemo(() => (rawPeaks.length ? [rawPeaks] : undefined), [idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const hasPeaks = rawPeaks.length > 0;
+  const peaks = useMemo(() => (hasPeaks ? [rawPeaks] : undefined), [idea.id, hasPeaks]); // eslint-disable-line react-hooks/exhaustive-deps
+  // A take saved a moment ago gets its waveform shortly: show a skeleton till then rather than decoding it twice.
+  const waiting = !hasPeaks && isFinishing(idea.id);
   // Dark on the card's lime: the unplayed part faint, the played part solid.
   const colors = useMemo(() => ({ wave: `${tokenColor("canvas")}59`, progress: tokenColor("canvas"), cursor: tokenColor("canvas") }), []);
 
@@ -42,8 +47,8 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
   // wavesurfer owns the blob's object URL, not a memoised URL.createObjectURL: StrictMode re-runs effects,
   // and a memoised URL gets revoked by the first cleanup while the memo keeps handing it back.
   useEffect(() => {
-    wavesurfer?.loadBlob(blob, peaks, durationSec).catch(() => setFailed(true));
-  }, [wavesurfer, idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!waiting) wavesurfer?.loadBlob(blob, peaks, durationSec).catch(() => setFailed(true));
+  }, [wavesurfer, idea.id, waiting]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // One hum at a time: playing this card pauses whichever hum was already playing.
   useEffect(() => {
@@ -83,7 +88,7 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
       <div className="flex items-center gap-3">
         <button
           type="button"
-          disabled={failed}
+          disabled={failed || waiting}
           onClick={() => wavesurfer?.playPause().catch(() => setFailed(true))}
           className={onColorButton}
         >
@@ -92,7 +97,8 @@ export function VoiceCard({ idea }: { idea: VoiceIdea }) {
             {isPlaying ? "Pause" : "Play"} {beat ? "beat" : "hum"}
           </span>
         </button>
-        <div className="flex min-w-0 flex-1 flex-col gap-1">
+        <div className="relative flex min-w-0 flex-1 flex-col gap-1">
+          {waiting && <div className="absolute inset-x-0 top-0 h-12 animate-pulse rounded-lg bg-canvas/10" aria-hidden />}
           <div
             ref={containerRef}
             role="slider"

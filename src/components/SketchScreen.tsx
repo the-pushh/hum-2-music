@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft, Check, MusicNotes, PencilSimple, Trash } from "@phosphor-icons/react";
 import { useState } from "react";
@@ -16,6 +16,7 @@ import { EditableTitle } from "./EditableTitle";
 import { FreeCanvas, useScreenWidth, type Piece } from "./FreeCanvas";
 import { IdeaCard } from "./IdeaCard";
 import { ideaSummary } from "./ideaSummary";
+import { SketchSkeleton } from "./SketchSkeleton";
 
 /** The page's widths before it was a canvas: max-w-5xl for the page, max-w-xl for the capture bar and the list. */
 const PAGE_WIDTH = 1024;
@@ -31,6 +32,12 @@ const columnsFor = (idea: Idea) => (idea.kind === "voice" ? 2 : 1);
 function andItsIdeas(n: number) {
   if (n === 0) return "";
   return n === 1 ? " and its 1 take" : ` and all ${n} of its takes`;
+}
+
+/** The idea page for the id in the URL. */
+export function SketchFromUrl() {
+  const { id } = useParams<{ id: string }>();
+  return <SketchScreen id={id} />;
 }
 
 export function SketchScreen({ id }: { id: string }) {
@@ -85,7 +92,7 @@ export function SketchScreen({ id }: { id: string }) {
     );
   }
 
-  if (sketch === undefined || ideas === undefined) return <main className="mx-auto w-full max-w-5xl px-4 py-8" aria-busy />;
+  if (sketch === undefined || ideas === undefined) return <SketchSkeleton />;
 
   const ideaPieces: Piece[] = editing
     ? [

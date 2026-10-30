@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowClockwise, GridFour } from "@phosphor-icons/react";
+import { isFinishing } from "@/audio/finishTake";
 import { playBeat } from "@/audio/takePlayer";
 import { changeBeatCleanup, hearBeatIdea, isHearingBeat } from "@/beat/client";
 import { drumPitch } from "@/beat/hearBeat";
@@ -21,7 +22,7 @@ export function BeatPanel({ idea }: { idea: VoiceIdea }) {
 
   // Hearing left pending by a closed tab or reload never finishes on its own: start it again.
   useEffect(() => {
-    if (t?.status === "pending" && !isHearingBeat(idea.id)) void hearBeatIdea(idea);
+    if (t?.status === "pending" && !isHearingBeat(idea.id) && !isFinishing(idea.id)) void hearBeatIdea(idea);
   }, [t?.status, idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!t) {

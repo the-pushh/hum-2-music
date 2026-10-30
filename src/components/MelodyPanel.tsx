@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowClockwise, CaretDown, MusicNotes } from "@phosphor-icons/react";
+import { isFinishing } from "@/audio/finishTake";
 import { playMelody } from "@/audio/takePlayer";
 import { defaultInstrument, instruments } from "@/instruments/instruments";
 import { isTranscribing, takeOf, transcribeIdea, useTranscribeProgress, type TranscribeProgress } from "@/melody/client";
@@ -53,7 +54,7 @@ export function MelodyPanel({ idea }: { idea: VoiceIdea }) {
 
   // A transcription left pending by a closed tab or reload never finishes on its own: start it again.
   useEffect(() => {
-    if (t?.status === "pending" && !isTranscribing(idea.id)) void transcribeIdea(idea);
+    if (t?.status === "pending" && !isTranscribing(idea.id) && !isFinishing(idea.id)) void transcribeIdea(idea);
   }, [t?.status, idea.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // In flight shows as hearing straight away, before the pending status reaches the store.

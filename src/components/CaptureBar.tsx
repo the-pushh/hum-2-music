@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { GridFour, MusicNotes, TextAa } from "@phosphor-icons/react";
-import { hearBeatIdea } from "@/beat/client";
-import { isBeat, transcribeIdea, useTranscribeProgress } from "@/melody/client";
+import { finishTake } from "@/audio/finishTake";
+import { useTranscribeProgress } from "@/melody/client";
 import { captureIdea } from "@/sketches/client";
 import type { IdeaInput } from "@/sketches/types";
 import { beatBg, ideaBg } from "@/ui/ideaColors";
@@ -54,14 +54,28 @@ export function CaptureBar({ openSketchId }: Props) {
   const router = useRouter();
   const [section, setSection] = useSection();
   const [recording, setRecording] = useState(false);
+  // On the home screen a take starts a new idea. Its id is chosen when recording starts, so its page can load while
+  // the songwriter hums and opens the moment they stop.
+  const newSketchId = useRef<string | null>(null);
   // Carries on across the jump to a new sketch's page, so the songwriter sees their hum being heard where they tapped.
   const hearing = useTranscribeProgress();
   const hearingNote =
     hearing && `Turning your hum into notes${hearing.stage === "hearing" ? `, ${Math.round(hearing.heard * 100)}%` : ""}`;
 
+  function busyChange(busy: boolean) {
+    setRecording(busy);
+    if (busy && !openSketchId && !newSketchId.current) {
+      newSketchId.current = crypto.randomUUID();
+      router.prefetch(`/s/${newSketchId.current}`);
+    }
+  }
+
   async function save(input: IdeaInput, stillMounted = true) {
-    const { sketch, idea } = await captureIdea(openSketchId, input);
-    if (idea.kind === "voice") void (isBeat(idea) ? hearBeatIdea(idea) : transcribeIdea(idea));
+    const sketchId = newSketchId.current ?? undefined;
+    newSketchId.current = null;
+    // A take is saved as being heard, so its card shows a skeleton rather than a button until the notes arrive.
+    const { sketch, idea } = await captureIdea(openSketchId, input.kind === "voice" ? { ...input, transcription: { status: "pending" } } : input, sketchId);
+    if (idea.kind === "voice") void finishTake(idea);
     if (stillMounted && !openSketchId) router.push(`/s/${sketch.id}`);
   }
 
@@ -87,7 +101,7 @@ export function CaptureBar({ openSketchId }: Props) {
       {section === "lyrics" ? (
         <LyricsNote openSketchId={openSketchId} />
       ) : (
-        <Recorder mode={section} onSave={save} onBusyChange={setRecording} idleNote={hearingNote || undefined} />
+        <Recorder mode={section} onSave={save} onBusyChange={busyChange} idleNote={hearingNote || undefined} />
       )}
     </section>
   );

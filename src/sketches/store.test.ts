@@ -59,6 +59,13 @@ describe("sketch store", () => {
     expect(await store.listIdeas(sketch.id)).toEqual([idea]);
   });
 
+  it("gives a new sketch the id chosen for it ahead of time, so its page can load before the capture is saved", async () => {
+    const store = freshStore();
+    const { sketch } = await store.capture(null, { kind: "note", text: "first thought" }, "chosen-id");
+    expect(sketch.id).toBe("chosen-id");
+    expect(await store.listIdeas("chosen-id")).toHaveLength(1);
+  });
+
   it("captures into the open sketch", async () => {
     const store = freshStore();
     const open = await store.createSketch("Open");
@@ -147,6 +154,21 @@ describe("sketch store", () => {
       expect(read.durationSec).toBe(4);
       expect(read.peaks).toEqual([0.2, 0.6]);
       expect(new Uint8Array(await read.blob.arrayBuffer())).toEqual(new Uint8Array([9, 8, 7]));
+    });
+
+    it("fills in a take's waveform after it's saved, keeping its transcription and the sketch's place", async () => {
+      const store = freshStore();
+      const idea = await voiceIdea(store);
+      await store.setTranscription(idea.id, { status: "pending" });
+      const before = (await store.getSketch(idea.sketchId))?.updatedAt;
+      await store.setWaveform(idea.id, { durationSec: 4.25, peaks: [0.1, 0.9, 0.4] });
+
+      const read = await store.getIdea(idea.id);
+      if (read?.kind !== "voice") throw new Error("expected a voice idea");
+      expect(read.durationSec).toBe(4.25);
+      expect(read.peaks).toEqual([0.1, 0.9, 0.4]);
+      expect(read.transcription).toEqual({ status: "pending" });
+      expect((await store.getSketch(idea.sketchId))?.updatedAt).toBe(before);
     });
 
     it("saves the hits heard in a beat and reads them back", async () => {

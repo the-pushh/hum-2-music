@@ -27,8 +27,8 @@ export async function deleteSketch(sketchId: string) {
 }
 
 /** Captures an idea, then asks the browser not to evict hum's data (Safari clears unpersisted storage after ~7 days). */
-export async function captureIdea(openSketchId: string | null, input: IdeaInput) {
-  const result = await sketchStore().capture(openSketchId, input);
+export async function captureIdea(openSketchId: string | null, input: IdeaInput, newSketchId?: string) {
+  const result = await sketchStore().capture(openSketchId, input, newSketchId);
   if (!persistRequested) {
     persistRequested = true;
     void navigator.storage?.persist?.().catch(() => {});

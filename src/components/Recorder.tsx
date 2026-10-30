@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import WaveSurfer from "wavesurfer.js";
 import RecordPlugin from "wavesurfer.js/dist/plugins/record.esm.js";
 import { Microphone, Stop } from "@phosphor-icons/react";
-import { analyseRecording } from "@/audio/analyse";
 import { audioContext } from "@/audio/context";
 import { startClick } from "@/audio/click";
 import { formatDuration } from "@/audio/formatDuration";
@@ -220,10 +219,10 @@ export function Recorder({ mode, onSave, onBusyChange, idleNote }: Props) {
     savingRef.current = true;
     teardown();
     const mime = blob.type || requestedMime || "audio/webm";
-    // If decoding fails, keep the hum anyway with the timer's length and no waveform.
-    const analysis = await analyseRecording(blob).catch(() => ({ durationSec: elapsedRef.current, peaks: [] }));
+    // Saved straight away with the timer's length and no waveform, so the take's page opens without waiting to decode
+    // it. The real length and waveform follow (see finishTake).
     try {
-      await onSave({ kind: "voice", blob, mime, ...analysis, take: takeRef.current }, mountedRef.current);
+      await onSave({ kind: "voice", blob, mime, durationSec: elapsedRef.current, peaks: [], take: takeRef.current }, mountedRef.current);
     } catch {
       if (mountedRef.current) setError(`The ${mode === "melody" ? "hum" : "beat"} couldn't be saved to this browser's storage. Try recording again.`);
     } finally {

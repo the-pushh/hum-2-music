@@ -1,15 +1,12 @@
 import { Suspense } from "react";
-import { SketchScreen } from "@/components/SketchScreen";
+import { SketchFromUrl } from "@/components/SketchScreen";
+import { SketchSkeleton } from "@/components/SketchSkeleton";
 
-async function SketchFromParams({ params }: { params: PageProps<"/s/[id]">["params"] }) {
-  const { id } = await params;
-  return <SketchScreen id={id} />;
-}
-
-export default function SketchPage(props: PageProps<"/s/[id]">) {
+// The id is read in the browser, so the page needs nothing from the server and opens without a round trip.
+export default function SketchPage() {
   return (
-    <Suspense fallback={<main className="mx-auto w-full max-w-5xl px-4 py-8" aria-busy />}>
-      <SketchFromParams params={props.params} />
+    <Suspense fallback={<SketchSkeleton />}>
+      <SketchFromUrl />
     </Suspense>
   );
 }
