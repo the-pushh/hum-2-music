@@ -347,13 +347,13 @@ describe("sketch store", () => {
     ]);
   });
 
-  it("cleans up melodies heard before the cleanup changed again, from their raw notes and settings", async () => {
+  it.each([4, 5])("cleans up melodies heard before the cleanup changed again, from their raw notes and settings (from v%i)", async (version) => {
     const name = `test-${n++}`;
     const old = new Dexie(name);
     old.version(1).stores({ sketches: "id, updatedAt", ideas: "id, sketchId, [sketchId+order]" });
     old.version(2).stores({ arrangements: "sketchId" });
     old.version(3).stores({ layouts: "id" });
-    old.version(4).stores({});
+    old.version(version).stores({});
     // A held note the old cleanup left as a flicker between two semitones.
     const raw = [
       { pitch: 64, start: 0, duration: 0.45, velocity: 0.7 },

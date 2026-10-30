@@ -18,6 +18,11 @@ const slide = { longestSec: 0.12, semitones: 2, gapSec: 0.05 };
  * strays this many semitones from the one it's on. Notes closer than this gap are one stretch of continuous voice.
  */
 const steady = { windowSec: 0.4, semitones: 0.7, gapSec: 0.08, frameSec: 0.01 };
+/**
+ * A hum often comes out as short notes with little gaps between them, which plays back choppy. A note this short, a gap
+ * this small from a note this close in pitch, was part of that note.
+ */
+const staccato = { longestSec: 0.25, gapSec: 0.2, semitones: 2 };
 /** Out-of-key notes held at least this long were meant: a blue note, a passing chromatic note. */
 const heldNoteSec = 0.5;
 /** Where the melody should sit for piano: around the octave above middle C. */
@@ -47,6 +52,7 @@ export function cleanup(raw: Note[], settings: CleanupSettings, take: Take): { n
   // Slides are folded in before blips are dropped, so a scoop lengthens its note rather than leaving a hole.
   notes = foldSlides(notes, slide.longestSec * beatsPerSec, slide.gapSec * beatsPerSec);
   notes = notes.filter((n) => n.duration >= shortestNoteSec * beatsPerSec);
+  notes = joinStaccato(notes, staccato.longestSec * beatsPerSec, staccato.gapSec * beatsPerSec);
 
   const key = settings.key === "auto" ? detectKey(notes) : settings.key;
   if (settings.snap) notes = snapToKey(notes, key, heldNoteSec * beatsPerSec);
@@ -214,6 +220,41 @@ function foldSlides<N extends Note>(notes: N[], longest: number, maxGap: number)
     } else {
       line.splice(best, 2, { ...next, start: n.start, duration: end(next) - n.start });
     }
+  }
+}
+
+/**
+ * Joins each short note across a small gap to the note beside it, shortest first, so a choppy run becomes one held note.
+ * Notes sung right after one another have no gap and aren't staccato, so quick legato lines are left alone. A short
+ * note joins the neighbour closer in pitch, or the longer one, and the pair takes the longer note's pitch.
+ */
+function joinStaccato<N extends Note>(notes: N[], longest: number, maxGap: number): N[] {
+  const line = [...notes];
+  const gapBetween = (a: N, b: N) => b.start - end(a);
+  const joins = (n: N, other: N | undefined, gap: number) =>
+    other !== undefined && gap > 1e-9 && gap <= maxGap && Math.abs(other.pitch - n.pitch) <= staccato.semitones;
+  for (;;) {
+    let best = -1;
+    for (let i = 0; i < line.length; i++) {
+      const n = line[i];
+      if (n.duration >= longest || (best >= 0 && n.duration >= line[best].duration)) continue;
+      const prev = line[i - 1];
+      const next = line[i + 1];
+      if ((prev && joins(n, prev, gapBetween(prev, n))) || (next && joins(n, next, gapBetween(n, next)))) best = i;
+    }
+    if (best < 0) return line;
+
+    const n = line[best];
+    const prev = line[best - 1];
+    const next = line[best + 1];
+    const toPrev = prev !== undefined && joins(n, prev, gapBetween(prev, n));
+    const toNext = next !== undefined && joins(n, next, gapBetween(n, next));
+    const closer = (a: N, b: N) => Math.abs(a.pitch - n.pitch) - Math.abs(b.pitch - n.pitch) || b.duration - a.duration;
+    const withPrev = toPrev && (!toNext || closer(prev, next) <= 0);
+    const [first, second] = withPrev ? [prev, n] : [n, next];
+    const longer = first.duration >= second.duration ? first : second;
+    const joined = { ...longer, start: first.start, duration: end(second) - first.start, velocity: Math.max(first.velocity, second.velocity) };
+    line.splice(withPrev ? best - 1 : best, 2, joined);
   }
 }
 

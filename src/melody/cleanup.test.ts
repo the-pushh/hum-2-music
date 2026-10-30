@@ -179,13 +179,49 @@ describe("cleanup", () => {
       expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([62, 64, 65, 67, 69]);
     });
 
-    it("keeps quick notes a beat apart from their neighbours", () => {
+    it("joins a choppy run of short notes into one", () => {
+      // At 90 BPM, 0.3 beats is 200 ms and 0.15 beats is 100 ms.
       const hum: Note[] = [
-        { pitch: 60, start: 0, duration: 0.5, velocity: 0.7 },
-        { pitch: 62, start: 0.7, duration: 0.15, velocity: 0.7 },
-        { pitch: 64, start: 1, duration: 0.5, velocity: 0.7 },
+        { pitch: 64, start: 0, duration: 0.3, velocity: 0.6 },
+        { pitch: 64, start: 0.45, duration: 0.25, velocity: 0.7 },
+        { pitch: 65, start: 0.85, duration: 0.2, velocity: 0.5 },
+        { pitch: 64, start: 1.2, duration: 0.3, velocity: 0.6 },
       ];
-      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([60, 62, 64]);
+      const { notes } = cleanup(hum, noSnap, free);
+      expect(notes.map(({ pitch, start, duration }) => ({ pitch, start, duration }))).toEqual([
+        { pitch: 64, start: 0, duration: expect.closeTo(1.5, 9) },
+      ]);
+    });
+
+    it("joins a short note into the held note it was chopped from", () => {
+      const hum: Note[] = [
+        { pitch: 67, start: 0, duration: 1, velocity: 0.7 },
+        { pitch: 67, start: 1.2, duration: 0.25, velocity: 0.6 },
+        { pitch: 64, start: 2, duration: 1, velocity: 0.7 },
+      ];
+      const { notes } = cleanup(hum, noSnap, free);
+      expect(notes.map(({ pitch, duration }) => ({ pitch, duration }))).toEqual([
+        { pitch: 67, duration: expect.closeTo(1.45, 9) },
+        { pitch: 64, duration: 1 },
+      ]);
+    });
+
+    it("keeps a short note that leaps away, even with gaps around it", () => {
+      const hum: Note[] = [
+        { pitch: 62, start: 0, duration: 0.5, velocity: 0.7 },
+        { pitch: 69, start: 0.7, duration: 0.2, velocity: 0.7 },
+        { pitch: 62, start: 1, duration: 0.5, velocity: 0.7 },
+      ];
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([62, 69, 62]);
+    });
+
+    it("keeps notes with gaps between them when they're held", () => {
+      const hum: Note[] = [
+        { pitch: 62, start: 0, duration: 0.6, velocity: 0.7 },
+        { pitch: 64, start: 0.75, duration: 0.6, velocity: 0.7 },
+        { pitch: 62, start: 1.5, duration: 0.6, velocity: 0.7 },
+      ];
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([62, 64, 62]);
     });
   });
 
@@ -251,7 +287,7 @@ describe("cleanup", () => {
   describe("grid", () => {
     const hum: Note[] = [
       { pitch: 60, start: 0.07, duration: 0.4, velocity: 0.7 },
-      { pitch: 62, start: 0.68, duration: 0.2, velocity: 0.7 },
+      { pitch: 67, start: 0.68, duration: 0.2, velocity: 0.7 },
       { pitch: 64, start: 1.05, duration: 0.9, velocity: 0.7 },
     ];
 
