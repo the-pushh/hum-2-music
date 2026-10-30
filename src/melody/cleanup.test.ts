@@ -133,6 +133,38 @@ describe("cleanup", () => {
       expect(notes.map(({ pitch, duration }) => ({ pitch, duration }))).toEqual([{ pitch: 64, duration: expect.closeTo(2.05, 9) }]);
     });
 
+    /** Notes sung one after another with no gap, as [pitch, beats]. */
+    const legato = (notes: [number, number][]): Note[] => {
+      let start = 0;
+      return notes.map(([pitch, duration]) => {
+        const n = { pitch, start, duration, velocity: 0.7 };
+        start += duration;
+        return n;
+      });
+    };
+
+    it("hears a voice sitting between two semitones as one note", () => {
+      // At 90 BPM, 0.3 beats is 200 ms: too long to be a slide, but the voice is just flickering across a semitone line.
+      const hum = legato([[64, 0.45], [65, 0.3], [64, 0.4], [65, 0.25], [64, 0.45]]);
+      const { notes } = cleanup(hum, noSnap, free);
+      expect(notes.map(({ pitch, duration }) => ({ pitch, duration }))).toEqual([{ pitch: 64, duration: expect.closeTo(1.85, 9) }]);
+    });
+
+    it("hears a slow, wide vibrato as one held note", () => {
+      const hum = legato([[64, 0.35], [65, 0.25], [64, 0.3], [63, 0.25], [64, 0.3], [65, 0.25], [64, 0.4]]);
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([64]);
+    });
+
+    it("keeps a melody that moves in quick, legato notes", () => {
+      const hum = legato([[62, 0.3], [64, 0.3], [66, 0.3], [67, 0.3], [69, 0.6], [67, 0.3], [66, 0.3], [64, 0.6]]);
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([62, 64, 66, 67, 69, 67, 66, 64]);
+    });
+
+    it("keeps a held step of a semitone", () => {
+      const hum = legato([[64, 1], [65, 1], [64, 1]]);
+      expect(pitches(cleanup(hum, noSnap, free).notes)).toEqual([64, 65, 64]);
+    });
+
     it("keeps a quick note that leaps away", () => {
       const hum: Note[] = [
         { pitch: 62, start: 0, duration: 1, velocity: 0.7 },

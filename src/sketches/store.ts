@@ -1,6 +1,7 @@
 import Dexie, { type EntityTable } from "dexie";
 import type { InstrumentId } from "@/instruments/instruments";
-import type { Transcription } from "@/melody/types";
+import { cleanup } from "@/melody/cleanup";
+import { referenceBpm, type Transcription } from "@/melody/types";
 import type { Arrangement, ArrangementInput, Idea, IdeaInput, Layout, Place, Sketch, VoiceIdea } from "./types";
 
 type HumDb = Dexie & {
@@ -28,6 +29,18 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
       .table<Sketch>("sketches")
       .filter((s) => /^Sketch, \d{1,2} \p{L}+$/u.test(s.title))
       .modify((s) => void (s.title = s.title.replace(/^Sketch/, "Idea"))),
+  );
+  // Cleanup now holds a wandering voice steady: clean every melody heard before again, from its raw notes.
+  db.version(5).upgrade((tx) =>
+    tx
+      .table<Idea>("ideas")
+      .filter((i) => i.kind === "voice" && i.transcription?.status === "done" && i.transcription.kind !== "beat")
+      .modify((i) => {
+        const t = (i as VoiceIdea).transcription;
+        if (t?.status !== "done" || t.kind === "beat") return;
+        const { notes, key } = cleanup(t.raw, t.settings, (i as VoiceIdea).take ?? { bpm: referenceBpm, click: false });
+        (i as VoiceIdea).transcription = { ...t, clean: notes, key };
+      }),
   );
 
   async function createSketch(title: string, id: string = crypto.randomUUID()): Promise<Sketch> {

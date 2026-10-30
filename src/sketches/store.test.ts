@@ -347,6 +347,39 @@ describe("sketch store", () => {
     ]);
   });
 
+  it("cleans up melodies heard before the cleanup changed again, from their raw notes and settings", async () => {
+    const name = `test-${n++}`;
+    const old = new Dexie(name);
+    old.version(1).stores({ sketches: "id, updatedAt", ideas: "id, sketchId, [sketchId+order]" });
+    old.version(2).stores({ arrangements: "sketchId" });
+    old.version(3).stores({ layouts: "id" });
+    old.version(4).stores({});
+    // A held note the old cleanup left as a flicker between two semitones.
+    const raw = [
+      { pitch: 64, start: 0, duration: 0.45, velocity: 0.7 },
+      { pitch: 65, start: 0.45, duration: 0.3, velocity: 0.7 },
+      { pitch: 64, start: 0.75, duration: 0.45, velocity: 0.7 },
+    ];
+    const settings = { key: "auto" as const, snap: false, grid: 8 as const };
+    await old.table("sketches").add({ id: "s1", title: "Hum", createdAt: 1, updatedAt: 1 });
+    await old.table("ideas").bulkAdd([
+      {
+        id: "melody", sketchId: "s1", order: 0, createdAt: 1, kind: "voice", mime: "audio/webm", durationSec: 1, peaks: [],
+        blob: new Blob([new Uint8Array([1])]), take: { mode: "melody", bpm: 90, click: false },
+        transcription: { status: "done", raw, clean: raw, key: { tonic: 4, mode: "major" }, settings, showRaw: false },
+      },
+      { id: "note", sketchId: "s1", order: 1, createdAt: 1, kind: "note", text: "untouched" },
+    ]);
+    old.close();
+
+    const store = openSketchStore({ name });
+    const melody = await store.getIdea("melody");
+    if (melody?.kind !== "voice" || melody.transcription?.status !== "done") throw new Error("expected a heard melody");
+    expect(melody.transcription.clean.map((n) => n.pitch)).toEqual([64]);
+    expect(melody.transcription.raw).toEqual(raw);
+    expect((await store.getIdea("note"))?.kind).toBe("note");
+  });
+
   describe("layouts", () => {
     it("still reads Sketches, Ideas and arrangements saved before layouts existed", async () => {
       const name = `test-${n++}`;

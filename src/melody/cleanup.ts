@@ -12,6 +12,12 @@ const splitGapSec = { min: 0.005, max: 0.03 };
  * short note of its own. A note this brief, touching a note this close in pitch, is part of that note.
  */
 const slide = { longestSec: 0.12, semitones: 2, gapSec: 0.05 };
+/**
+ * A voice holding a note wanders around it: vibrato, and pitch sitting between two semitones, flick the transcriber
+ * back and forth between neighbouring notes. Averaged over this window, the pitch only moves to a new note when it
+ * strays this many semitones from the one it's on. Notes closer than this gap are one stretch of continuous voice.
+ */
+const steady = { windowSec: 0.4, semitones: 0.7, gapSec: 0.08, frameSec: 0.01 };
 /** Out-of-key notes held at least this long were meant: a blue note, a passing chromatic note. */
 const heldNoteSec = 0.5;
 /** Where the melody should sit for piano: around the octave above middle C. */
@@ -37,6 +43,7 @@ export function cleanup(raw: Note[], settings: CleanupSettings, take: Take): { n
 
   notes = joinSplitNotes(notes, splitGapSec.min * beatsPerSec, splitGapSec.max * beatsPerSec);
   notes = oneAtATime(notes);
+  notes = holdSteady(notes, beatsPerSec);
   // Slides are folded in before blips are dropped, so a scoop lengthens its note rather than leaving a hole.
   notes = foldSlides(notes, slide.longestSec * beatsPerSec, slide.gapSec * beatsPerSec);
   notes = notes.filter((n) => n.duration >= shortestNoteSec * beatsPerSec);
@@ -69,6 +76,89 @@ function joinSplitNotes<N extends Note>(notes: N[], minGap: number, maxGap: numb
     }
   }
   return joined;
+}
+
+/**
+ * Regroups each stretch of continuous voice into the notes it holds. Same-pitch notes the transcriber kept apart were
+ * sung again, so a stretch ends there as well as at a gap.
+ */
+function holdSteady(notes: Sung[], beatsPerSec: number): Sung[] {
+  const steadied: Sung[] = [];
+  let stretch: Sung[] = [];
+  for (const n of notes) {
+    const prev = stretch.at(-1);
+    if (prev && (n.start - end(prev) > steady.gapSec * beatsPerSec || n.pitch === prev.pitch)) {
+      steadied.push(...steadyStretch(stretch, beatsPerSec));
+      stretch = [];
+    }
+    stretch.push(n);
+  }
+  steadied.push(...steadyStretch(stretch, beatsPerSec));
+  return steadied;
+}
+
+/**
+ * Splits a stretch of voice wherever its pitch, averaged over the window, leaves the note it's on, at the transcribed
+ * note that starts nearest the move. Each group becomes one note at the pitch the voice spent most time on.
+ */
+function steadyStretch(stretch: Sung[], beatsPerSec: number): Sung[] {
+  if (stretch.length < 2) return stretch;
+  const frame = steady.frameSec * beatsPerSec;
+  const half = Math.round(steady.windowSec / steady.frameSec / 2);
+  const t0 = stretch[0].start;
+  const frames = Math.max(1, Math.ceil((Math.max(...stretch.map(end)) - t0) / frame));
+  const startFrame = stretch.map((n) => Math.round((n.start - t0) / frame));
+
+  // The pitch at each frame, carrying the last note's pitch across the short gaps inside a stretch.
+  const pitchAt: number[] = [];
+  for (let i = 0, k = 0; i < frames; i++) {
+    while (k + 1 < stretch.length && startFrame[k + 1] <= i) k++;
+    pitchAt.push(stretch[k].pitch);
+  }
+  const sums = [0];
+  for (const p of pitchAt) sums.push(sums.at(-1)! + p);
+  const meanOver = (from: number, to: number) => {
+    const a = Math.max(0, from);
+    const b = Math.min(frames - 1, to);
+    return (sums[b + 1] - sums[a]) / (b - a + 1);
+  };
+
+  const cuts = [0];
+  let current = Math.round(meanOver(0, half));
+  for (let i = 0; i < frames; i++) {
+    if (Math.abs(meanOver(i - half, i + half) - current) <= steady.semitones) continue;
+    let nearest = -1;
+    for (let k = cuts.at(-1)! + 1; k < stretch.length; k++) {
+      const distance = Math.abs(startFrame[k] - i);
+      if (distance <= 2 * half && (nearest < 0 || distance < Math.abs(startFrame[nearest] - i))) nearest = k;
+    }
+    if (nearest < 0) continue;
+    const next = Math.round(meanOver(startFrame[nearest], startFrame[nearest] + 2 * half));
+    if (next === current) continue;
+    cuts.push(nearest);
+    current = next;
+  }
+
+  return cuts.map((from, c) => {
+    const group = stretch.slice(from, cuts[c + 1] ?? stretch.length);
+    const pitch = mostHeld(group);
+    const start = group[0].start;
+    const held = group.filter((n) => n.pitch === pitch);
+    return {
+      pitch,
+      start,
+      duration: Math.max(...group.map(end)) - start,
+      velocity: Math.max(...group.map((n) => n.velocity)),
+      sung: held.reduce((sum, n) => sum + n.sung * n.duration, 0) / held.reduce((sum, n) => sum + n.duration, 0),
+    };
+  });
+}
+
+/** The pitch held longest across some notes; the lower one on a tie. */
+function mostHeld(notes: Note[]): number {
+  const time = new Map<number, number>();
+  for (const n of notes) time.set(n.pitch, (time.get(n.pitch) ?? 0) + n.duration);
+  return [...time].sort((a, b) => b[1] - a[1] || a[0] - b[0])[0][0];
 }
 
 /** Reduces overlapping notes to one line. A small overlap is legato and trims the earlier note; a big one keeps the stronger note. */
