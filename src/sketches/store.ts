@@ -22,6 +22,13 @@ export function openSketchStore({ name = "hum", now = Date.now }: Options = {}) 
   });
   db.version(2).stores({ arrangements: "sketchId" });
   db.version(3).stores({ layouts: "id" });
+  // Sketches are called ideas on screen now: retitle the ones still named by date the old way.
+  db.version(4).upgrade((tx) =>
+    tx
+      .table<Sketch>("sketches")
+      .filter((s) => /^Sketch, \d{1,2} \p{L}+$/u.test(s.title))
+      .modify((s) => void (s.title = s.title.replace(/^Sketch/, "Idea"))),
+  );
 
   async function createSketch(title: string): Promise<Sketch> {
     const t = now();

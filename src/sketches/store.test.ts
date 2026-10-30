@@ -304,6 +304,27 @@ describe("sketch store", () => {
     });
   });
 
+  it("renames Sketches titled the old way, by date, to ideas, and keeps titles the songwriter chose", async () => {
+    const name = `test-${n++}`;
+    const old = new Dexie(name);
+    old.version(1).stores({ sketches: "id, updatedAt", ideas: "id, sketchId, [sketchId+order]" });
+    old.version(2).stores({ arrangements: "sketchId" });
+    old.version(3).stores({ layouts: "id" });
+    await old.table("sketches").bulkAdd([
+      { id: "s1", title: "Sketch, 28 Oct", createdAt: 1, updatedAt: 5 },
+      { id: "s2", title: "Sketch, 3 Sept for the chorus", createdAt: 2, updatedAt: 6 },
+      { id: "s3", title: "Rainy bus", createdAt: 3, updatedAt: 7 },
+    ]);
+    old.close();
+
+    const store = openSketchStore({ name });
+    expect((await store.listSketches()).map((s) => [s.title, s.updatedAt])).toEqual([
+      ["Rainy bus", 7],
+      ["Sketch, 3 Sept for the chorus", 6],
+      ["Idea, 28 Oct", 5],
+    ]);
+  });
+
   describe("layouts", () => {
     it("still reads Sketches, Ideas and arrangements saved before layouts existed", async () => {
       const name = `test-${n++}`;
